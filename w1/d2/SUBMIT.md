@@ -1,4 +1,4 @@
-# W1-D2: Khai ph? log, parse log v? ph?t hi?n b?t th??ng
+# W1-D2: Khai phá log, parse log và phát hiện bất thường
 
 ## Submission Layout
 
@@ -8,54 +8,54 @@
 - `results/top_templates.csv`
 - `artifacts/outputs/`
 
-## Nh?ng g? ?? ho?n th?nh
+## Những gì đã hoàn thành
 
 ### Phase 1: Parse Log with Drain3
 
-- Dataset s? d?ng: HDFS t? Loghub
-- File d? li?u:
+- Dataset sử dụng: HDFS từ Loghub
+- File dữ liệu:
   - `data/raw/HDFS_100k.log_structured.csv`
   - `data/raw/anomaly_label.csv`
-- Notebook load log c? c?u tr?c v? ??m t?ng s? d?ng
-- Pipeline ?u ti?n Drain3 khi c? s?n, n?u m?i tr??ng thi?u `drain3` th? c? fallback ?? v?n ch?y ???c
-- Li?t k? to?n b? template v? ??m s? d?ng m?i template
-- Xu?t top-10 template ra `results/top_templates.csv`
-- Ghi l?i tuning `drain_sim_th` v?i c?c gi? tr? `0.3`, `0.5`, `0.7`
+- Notebook load log có cấu trúc và đếm tổng số dòng
+- Pipeline ưu tiên Drain3 khi có sẵn, nếu môi trường thiếu `drain3` thì có fallback để vẫn chạy được
+- Liệt kê toàn bộ template và đếm số dòng mỗi template
+- Xuất top-10 template ra `results/top_templates.csv`
+- Ghi lại tuning `drain_sim_th` với các giá trị `0.3`, `0.5`, `0.7`
 
 ### Phase 2: Anomaly Detection on Log
 
-- T?o feature theo session/block c?a HDFS
-- ?p d?ng detector ki?u Isolation Forest
-- Ph?t hi?n session/template b?t th??ng
-- T?nh precision / recall t? `anomaly_label.csv`
+- Tạo feature theo session/block của HDFS
+- Áp dụng detector kiểu Isolation Forest
+- Phát hiện session/template bất thường
+- Tính precision / recall từ `anomaly_label.csv`
 
 ### Phase 3: Embedding + Cross-signal
 
-- T?nh TF-IDF similarity tr?n template
-- C? th? gom c?c template gi?ng nhau th?nh c?m
-- Inject m?t d?ng log l? ?? ki?m tra ph?t hi?n new template
+- Tính TF-IDF similarity trên template
+- Có thể gom các template giống nhau thành cụm
+- Inject một dòng log lạ để kiểm tra phát hiện new template
 
 ### Phase 4: Mini Log Analyzer
 
-- `log_analyzer.py` nh?n m?t log file path
-- N? in ra:
-  - t?ng s? d?ng
-  - s? template unique
-  - top-5 templates theo count v? ratio
-  - templates spike trong 1 gi? g?n nh?t
-  - new templates trong 1 gi? g?n nh?t
+- `log_analyzer.py` nhận một log file path
+- Nó in ra:
+  - tổng số dòng
+  - số template unique
+  - top-5 templates theo count và ratio
+  - templates spike trong 1 giờ gần nhất
+  - new templates trong 1 giờ gần nhất
 
 ## Output
 
-- ?nh highlight b?t th??ng:
+- Ảnh highlight bất thường:
 
 ![HDFS anomaly highlight](artifacts/outputs/hdfs_anomaly_highlight.png)
 
-- ?nh top template:
+- Ảnh top template:
 
 ![HDFS top templates](artifacts/outputs/hdfs_top_templates.png)
 
-- ?nh template count time series:
+- Ảnh template count time series:
 
 ![HDFS template count time series](artifacts/outputs/hdfs_template_count_timeseries.png)
 
@@ -64,14 +64,14 @@
 - Log tuning: `artifacts/outputs/tuning_log.csv`
 - Metrics: `artifacts/outputs/hdfs_metrics.csv`
 
-## K?t qu? ki?m tra
+## Kết quả kiểm tra
 
-Pipeline ?? ???c ki?m tra tr?n:
+Pipeline đã được kiểm tra trên:
 
 - `HDFS_100k.log_structured.csv`
 - `HDFS_2k.log` for the mini analyzer path
 
-T?m t?t HDFS t? structured log:
+Tóm tắt HDFS từ structured log:
 
 - Total lines: `104815`
 - Unique templates: `19`
@@ -92,13 +92,13 @@ T?m t?t HDFS t? structured log:
 
 ## Reflection
 
-- Drain3 r?t h?p v?i log unstructured c? m?u l?p l?i v? n? gom c?c d?ng bi?n ??ng v?o template d?ng l?i ???c.
-- Ph?t hi?n template m?i quan tr?ng v? n? th??ng b?o hi?u deploy m?i, l?i m?i, ho?c h?nh vi l? ch?a t?ng th?y.
-- Spike c?a template h?u ?ch khi m?t m?u l?i c? th? ??t nhi?n xu?t hi?n d?y ??c trong m?t c?a s? th?i gian.
-- Metric tr? l?i c?u h?i "c?i g? ?ang sai", c?n log tr? l?i "t?i sao sai". K?t h?p c? hai s? r?t ng?n th?i gian t?m root cause.
-- Structured JSON log th??ng d? query h?n, c?n plain text log th? h??ng l?i r?t nhi?u t? parsing.
-- V?i HDFS l?n ch?y n?y, parser nh?m ???c c?c d?ng l?p l?i kh? t?t, nh?ng recall c?a detector v?n ? m?c trung b?nh v? detector ??n gi?n ch?a b?t h?t m?i failure mode.
+- Drain3 rất hợp với log unstructured có mẫu lặp lại vì nó gom các dòng biến động vào template dùng lại được.
+- Phát hiện template mới quan trọng vì nó thường báo hiệu deploy mới, lỗi mới, hoặc hành vi lạ chưa từng thấy.
+- Spike của template hữu ích khi một mẫu lỗi cụ thể đột nhiên xuất hiện dày đặc trong một cửa sổ thời gian.
+- Metric trả lời câu hỏi "cái gì đang sai", còn log trả lời "tại sao sai". Kết hợp cả hai sẽ rút ngắn thời gian tìm root cause.
+- Structured JSON log thường dễ query hơn, còn plain text log thì hưởng lợi rất nhiều từ parsing.
+- Với HDFS lần chạy này, parser nhóm được các dòng lặp lại khá tốt, nhưng recall của detector vẫn ở mức trung bình vì detector đơn giản chưa bắt hết mọi failure mode.
 
-## Nh?n X?t Bonus
+## Nhận Xét Bonus
 
-V?i log ki?u Docker-style c?a c?ng m?t service, log JSON c? l?i th? r?t r? v? c?c field nh? `timestamp`, `level`, `message`, `service`, `user`, `order` ?? c? c?u tr?c s?n n?n d? ??m, d? l?c v? ?t template h?n. Ng??c l?i, plain text c?n Drain3 ho?c regex parser ?? gom c?c d?ng bi?n ??ng v?o c?ng m?t template. Trong th? nghi?m c?a em, regex parser cho ra output ?n v? d? ki?m so?t theo format ?? bi?t, c?n Drain3 linh ho?t h?n khi format log thay ??i ho?c khi xu?t hi?n pattern m?i ngo?i d? ?o?n. V? v?y, n?u h? th?ng ?? log ???c JSON th? n?n ?u ti?n structured log; c?n n?u l? log c? ho?c l?n nhi?u format th? Drain3 v?n l? l?a ch?n an to?n h?n.
+Với log kiểu Docker-style của cùng một service, log JSON có lợi thế rất rõ vì các field như `timestamp`, `level`, `message`, `service`, `user`, `order` đã có cấu trúc sẵn nên dễ đếm, dễ lọc và ít template hơn. Ngược lại, plain text cần Drain3 hoặc regex parser để gom các dòng biến động vào cùng một template. Trong thử nghiệm của em, regex parser cho ra output ổn và dễ kiểm soát theo format đã biết, còn Drain3 linh hoạt hơn khi format log thay đổi hoặc khi xuất hiện pattern mới ngoài dự đoán. Vì vậy, nếu hệ thống đã log được JSON thì nên ưu tiên structured log; còn nếu là log cũ hoặc lẫn nhiều format thì Drain3 vẫn là lựa chọn an toàn hơn.
