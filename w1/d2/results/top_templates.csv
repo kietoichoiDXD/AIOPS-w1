@@ -1,0 +1,11 @@
+template_id,template,count
+E5,Receiving block <*> src: /<*> dest: /<*>,23671
+E26,BLOCK* NameSystem.addStoredBlock: blockMap updated: <*> is added to <*> size <*>,23478
+E11,PacketResponder <*> for block <*> terminating,23451
+E9,Received block <*> of size <*> from /<*>,23447
+E22,BLOCK* NameSystem.allocateBlock:<*>,7940
+E2,Verification succeeded for <*>,2183
+E3,<*> Served block <*> to /<*>,407
+E7,writeBlock <*> received exception <*>,68
+E6,Received block <*> src: /<*> dest: /<*> of size <*>,31
+E16,<*>:Transmitted block <*> to /<*>,27
