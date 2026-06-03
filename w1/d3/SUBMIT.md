@@ -1,70 +1,140 @@
-# W1-D3 Assignment Submission
+# Bài nộp W1-D3
 
-## Files
+## Tóm tắt
 
-- `pipeline.py`
-- `architecture.md`
-- `cost_model.py`
-- `ADR-001.md`
+Bài này hoàn thiện một kiến trúc AIOps cho use case `anomaly detection trên payment service`, gồm 4 phần:
 
-## Screenshot / Diagram
+- `pipeline.py`: mô phỏng streaming pipeline đọc dữ liệu NAB và tạo feature theo kiểu streaming
+- `architecture.md` và `architecture.png`: mô tả kiến trúc dữ liệu đầu-cuối
+- `cost_model.py`: ước tính chi phí cho 3 quy mô
+- `ADR-001.md`: ghi lại quyết định kiến trúc quan trọng
 
-Architecture diagram is included in [`architecture.md`](./architecture.md).
+## 1. Sơ đồ kiến trúc
 
-## Pipeline summary
+Sơ đồ kiến trúc nằm ở:
 
-The mock streaming pipeline reads `data/raw/machine_temperature_system_failure.csv`, simulates a producer by pushing rows into a `queue.Queue`, and computes rolling features on the consumer side.
+- [`architecture.md`](./architecture.md)
+- [`architecture.png`](./architecture.png)
 
-Expected output:
+Use case được chọn:
 
-- `features.parquet` when Parquet support is available
-- `features.json` as fallback if Parquet dependencies are missing
+- Anomaly detection trên `payment service`
 
-## Cost estimate
+Chuỗi thành phần:
 
-Run:
+- Service
+- Collection
+- Transport
+- Processing
+- Storage
+- Query / ML
+
+## 2. Pipeline mô phỏng streaming
+
+`pipeline.py` đọc dữ liệu từ source NAB:
+
+- `data/raw/machine_temperature_system_failure.csv`
+- link tham chiếu: `https://raw.githubusercontent.com/numenta/NAB/master/data/realKnownCause/machine_temperature_system_failure.csv`
+
+Luồng xử lý:
+
+1. Producer giả lập đọc từng dòng CSV.
+2. Producer đẩy từng event vào `queue.Queue` như fake Kafka producer.
+3. Consumer đọc stream từ queue.
+4. Consumer tính các feature:
+   - rolling mean 1 giờ
+   - rolling std 1 giờ
+   - rolling mean 24 giờ
+   - rate of change
+   - rate of change 1 giờ
+5. Kết quả được ghi ra:
+   - `features.parquet` nếu môi trường có hỗ trợ
+   - hoặc `features.json` nếu không có Parquet backend
+
+Lệnh chạy:
 
 ```bash
-uv run python cost_model.py
+uv run python pipeline.py
 ```
 
-The script prints a monthly cost breakdown by tier for:
+Kết quả kiểm tra thực tế:
+
+- Input rows: `22695`
+- Output rows: `22695`
+- File output: `features.json`
+
+## 3. Ước tính chi phí
+
+`cost_model.py` ước tính chi phí theo 3 tier:
+
+- Small: 10 services, 50 GB log/day, 100K events/sec metric
+- Medium: 100 services, 500 GB log/day, 1M events/sec metric
+- Large: 1000 services, 5 TB log/day, 10M events/sec metric
+
+Script in ra bảng cost breakdown cho:
 
 - storage
 - compute
 - network
 - total
 
-It also compares build vs Datadog SaaS.
+và so sánh:
 
-## ADR summary
+- Build
+- Datadog SaaS
 
-Decision: use Kafka for telemetry transport.
+Lệnh chạy:
 
-Reason:
+```bash
+uv run python cost_model.py
+```
 
-- decouple producers from storage
-- replay after downstream failure
-- absorb burst traffic
-- support multiple consumers from one stream
+## 4. ADR
+
+File [`ADR-001.md`](./ADR-001.md) ghi lại quyết định:
+
+- Chọn Kafka làm lớp transport cho telemetry
+
+Điểm chính:
+
+- giảm phụ thuộc trực tiếp giữa producer và storage
+- hỗ trợ replay khi downstream lỗi
+- chịu burst tốt hơn
+- cho phép nhiều consumer đọc cùng một stream
 
 Trade-off:
 
-- higher operational complexity
-- slightly higher latency than direct push
+- tăng độ phức tạp vận hành
+- tăng latency nhẹ so với direct push
 
-## Reflection
+## 5. Reflection
 
-If I were hired as Platform Engineer for a 50-service startup that just raised Series A, I would recommend a mostly build-first approach with selective buy:
+Nếu mình được hire làm Platform Engineer cho startup 50-service vừa raise Series A, mình sẽ recommend:
 
-- build the streaming pipeline and internal feature processing
-- buy managed storage or managed observability where operating cost is too high
+- build phần lõi cần kiểm soát chặt như pipeline stream, feature processing, và logic nội bộ quan trọng
+- buy các phần rất tốn công vận hành như observability SaaS hoặc managed storage ở giai đoạn đầu
 
-Reason: at 50 services, the team needs flexibility and cost control, but not a fully custom observability platform. A hybrid approach avoids lock-in while keeping the team focused on product work instead of running every subsystem.
+Vì sao:
 
-## How to run
+- team quy mô này cần đi nhanh
+- chưa nên tự xây toàn bộ platform từ đầu
+- nhưng cũng không nên phụ thuộc hoàn toàn vào vendor nếu chi phí tăng mạnh khi scale
 
-```bash
-uv run python pipeline.py
-uv run python cost_model.py
-```
+Kết luận:
+
+- chiến lược hợp lý nhất là `build-first có chọn lọc` và `buy` những phần có chi phí vận hành cao
+
+## 6. Kết quả đã tạo
+
+Các file trong `w1/d3/`:
+
+- [`pipeline.py`](./pipeline.py)
+- [`architecture.md`](./architecture.md)
+- [`architecture.png`](./architecture.png)
+- [`cost_model.py`](./cost_model.py)
+- [`ADR-001.md`](./ADR-001.md)
+- [`features.json`](./features.json)
+
+## 7. Ghi chú
+
+File này được viết bằng tiếng Việt và lưu UTF-8.

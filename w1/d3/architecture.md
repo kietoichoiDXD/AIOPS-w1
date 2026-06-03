@@ -1,10 +1,14 @@
-# W1-D3 Architecture
+# Kiến trúc dữ liệu W1-D3
 
 ## Use case
 
 Anomaly detection trên `payment service`.
 
-## E2E data layer
+## Sơ đồ tổng thể
+
+![architecture](./architecture.png)
+
+## Luồng end-to-end
 
 ```mermaid
 flowchart LR
@@ -19,22 +23,22 @@ flowchart LR
     V --> M[ML Feature Jobs]
 ```
 
-## Tool choices
+## Thành phần và lựa chọn công cụ
 
-- Service: payment microservice emit metric/log/trace.
-- Collection: OpenTelemetry SDK + OpenTelemetry Collector.
-- Transport: Kafka to buffer bursts and allow replay.
-- Processing: Flink for streaming enrichment and feature generation.
+- Service: payment microservice phát sinh metric, log, trace.
+- Collection: OpenTelemetry SDK và OpenTelemetry Collector.
+- Transport: Kafka để buffer burst và hỗ trợ replay.
+- Processing: Flink để làm stream processing, enrich, và tạo feature.
 - Storage:
-  - VictoriaMetrics for metrics.
-  - Loki for logs.
+  - VictoriaMetrics cho metric.
+  - Loki cho log.
 - Query / ML:
-  - Grafana for dashboards and alert views.
-  - ML jobs read enriched stream outputs for anomaly scoring.
+  - Grafana cho dashboard và alert.
+  - Job ML đọc output đã enrich để chấm điểm anomaly.
 
-## Why this shape
+## Lý do chọn kiến trúc này
 
-- Metrics need cheap, long retention and very fast query.
-- Logs need searchable context without paying Elasticsearch cost everywhere.
-- Kafka decouples production spikes from downstream storage pressure.
-- Flink keeps the rolling features close to the stream so the ML path can stay low latency.
+- Metric cần lưu rẻ, query rất nhanh và giữ dài ngày.
+- Log cần tìm kiếm theo ngữ cảnh nhưng không muốn trả chi phí cao như Elasticsearch cho mọi thứ.
+- Kafka tách producer khỏi storage, giúp hệ thống chịu tải tốt hơn khi downstream chậm.
+- Flink giữ phần rolling feature ở gần luồng dữ liệu để inference gần thời gian thực hơn.

@@ -1,12 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
 
 import pandas as pd
 
 
-@dataclass
+@dataclass(frozen=True)
 class Tier:
     name: str
     services: int
@@ -21,47 +20,35 @@ TIERS = [
 ]
 
 
-def estimate_build_cost(tier: Tier) -> Dict[str, float]:
+def build_cost(tier: Tier) -> dict[str, float]:
     monthly_log_gb = tier.log_gb_per_day * 30
-    metric_gb_month = tier.metric_events_per_sec * 0.000004 * 30
-    storage = monthly_log_gb * 0.023 + metric_gb_month * 0.20
-    compute = tier.services * 55 + (tier.metric_events_per_sec / 100_000) * 120
-    network = monthly_log_gb * 0.09
+    metric_points_m = tier.metric_events_per_sec * 30 * 24 * 3600 / 1_000_000
+    storage = monthly_log_gb * 0.023 + metric_points_m * 0.12
+    compute = tier.services * 42 + (tier.metric_events_per_sec / 100_000) * 95
+    network = monthly_log_gb * 0.08 + (tier.services * 3)
     return {"storage": storage, "compute": compute, "network": network}
 
 
-def estimate_datadog_cost(tier: Tier) -> Dict[str, float]:
+def datadog_cost(tier: Tier) -> dict[str, float]:
     monthly_log_gb = tier.log_gb_per_day * 30
-    metric_events_m = tier.metric_events_per_sec * 30 * 24 * 3600 / 1_000_000
-    storage = monthly_log_gb * 0.50 + metric_events_m * 0.15
-    compute = tier.services * 150
-    network = monthly_log_gb * 0.15
+    metric_points_m = tier.metric_events_per_sec * 30 * 24 * 3600 / 1_000_000
+    storage = monthly_log_gb * 0.45 + metric_points_m * 0.18
+    compute = tier.services * 125
+    network = monthly_log_gb * 0.12 + (tier.services * 5)
     return {"storage": storage, "compute": compute, "network": network}
 
 
-def format_table(tier: Tier) -> pd.DataFrame:
-    build = estimate_build_cost(tier)
-    buy = estimate_datadog_cost(tier)
-    rows = [
-        {
-            "tier": tier.name,
-            "option": "Build",
-            **build,
-            "total": sum(build.values()),
-        },
-        {
-            "tier": tier.name,
-            "option": "Datadog",
-            **buy,
-            "total": sum(buy.values()),
-        },
-    ]
-    return pd.DataFrame(rows)
+def row_for(tier: Tier, option: str, values: dict[str, float]) -> dict[str, float | str]:
+    return {"tier": tier.name, "option": option, **values, "total": sum(values.values())}
 
 
 def main() -> None:
-    frames = [format_table(tier) for tier in TIERS]
-    result = pd.concat(frames, ignore_index=True)
+    rows = []
+    for tier in TIERS:
+        rows.append(row_for(tier, "Build", build_cost(tier)))
+        rows.append(row_for(tier, "Datadog", datadog_cost(tier)))
+
+    result = pd.DataFrame(rows)
     result[["storage", "compute", "network", "total"]] = result[
         ["storage", "compute", "network", "total"]
     ].round(2)
