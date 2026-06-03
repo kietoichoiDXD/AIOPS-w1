@@ -83,6 +83,37 @@ và so sánh:
 - Build
 - Datadog SaaS
 
+### Giải thích mô hình chi phí
+
+Mô hình này được viết để dễ bảo vệ khi trình bày, nên mình tách chi phí thành 3 nhóm chính:
+
+- `storage`: gồm log hot/cold tier và metric retention
+- `compute`: gồm collector, Kafka, và stream processing
+- `network`: gồm chi phí truyền dữ liệu telemetry mỗi tháng
+
+Giả định chính:
+
+- log được chia thành `20% hot` và `80% cold`
+- metrics được quy đổi theo số sample mỗi tháng
+- build-first sẽ có thêm chi phí vận hành hạ tầng như Kafka và stream processor
+
+Ý nghĩa của bảng:
+
+- `Build` phù hợp khi muốn kiểm soát dữ liệu và chi phí theo scale
+- `Datadog` phù hợp khi ưu tiên tốc độ triển khai và giảm gánh vận hành
+- ở quy mô càng lớn, phần cost chênh lệch cần được cân nhắc cùng với effort vận hành và yêu cầu compliance
+
+### Bảng cost estimate
+
+| Tier | Option | Storage | Compute | Network | Total |
+|---|---|---:|---:|---:|---:|
+| Small | Build | 1307.76 | 398.00 | 697.08 | 2402.84 |
+| Small | Datadog | 645.00 | 275.00 | 1053.12 | 1973.12 |
+| Medium | Build | 13077.60 | 3005.00 | 6970.80 | 23053.40 |
+| Medium | Datadog | 6450.00 | 2750.00 | 10531.20 | 19731.20 |
+| Large | Build | 130776.00 | 30050.00 | 69708.00 | 230534.00 |
+| Large | Datadog | 64500.00 | 27500.00 | 105312.00 | 197312.00 |
+
 Lệnh chạy:
 
 ```bash
