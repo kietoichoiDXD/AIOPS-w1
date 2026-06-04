@@ -1,0 +1,21 @@
+template,count
+Health check passed,3213
+Item added to cart for userId=<num>,3086
+DB query executed table=cart rows=<num>,2821
+ProductCatalogCache eviction failed: heap pressure too high,2655
+Checkout completed orderId=ORD-<id>,2021
+ProductCatalogCache loaded <num> entries,1836
+Connection pool nearing limit pool=db connections=<num>/<num>,1173
+OutOfMemoryError imminent: available heap < <num>%,944
+Container OOMKilled: memory limit exceeded,819
+Cache warm-up slower than expected startup_ms=<num>,710
+Upstream connection refused host=product-service,514
+Application starting up version=<num>.<num>,101
+Health check response time elevated endpoint=/health latency=203ms,14
+Health check response time elevated endpoint=/health latency=191ms,11
+GC overhead limit warning: pause=407ms heap=<num>%,10
+GC overhead limit warning: pause=532ms heap=<num>%,10
+Health check response time elevated endpoint=/health latency=121ms,9
+Health check response time elevated endpoint=/health latency=236ms,9
+Health check response time elevated endpoint=/health latency=177ms,9
+Health check response time elevated endpoint=/health latency=140ms,9

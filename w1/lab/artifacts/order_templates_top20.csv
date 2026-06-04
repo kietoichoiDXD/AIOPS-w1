@@ -1,0 +1,21 @@
+template,count
+Cart service call succeeded,2421
+Order created orderId=ORD-<id> userId=<num>,2182
+Health check passed,1798
+Cart service returned 5xx status=<num>,438
+Cart service timeout after 1002ms,4
+Cart service timeout after 596ms,4
+Cart service timeout after 2450ms,3
+Cart service timeout after 1016ms,3
+Cart service timeout after 2940ms,3
+Cart service timeout after 1326ms,3
+Cart service timeout after 2367ms,3
+Cart service timeout after 832ms,3
+Cart service timeout after 2674ms,3
+Cart service timeout after 2912ms,3
+Cart service timeout after 2202ms,3
+Cart service timeout after 1864ms,3
+Cart service timeout after 1042ms,3
+Cart service timeout after 2624ms,3
+Cart service timeout after 518ms,3
+Cart service timeout after 1481ms,3
