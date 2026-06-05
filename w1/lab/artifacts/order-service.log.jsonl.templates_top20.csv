@@ -1,0 +1,21 @@
+template,count,first_seen,last_seen,sample
+Cart service call succeeded,2421,2026-06-01T00:00:50.424Z,2026-06-01T23:59:34.813Z,Cart service call succeeded
+Order created orderId=ORD-<num> userId=<id>,2182,2026-06-01T00:00:05.762Z,2026-06-01T23:59:52.503Z,Order created orderId=ORD-73632836 userId=55089
+Health check passed,1798,2026-06-01T00:00:28.691Z,2026-06-01T23:57:35.938Z,Health check passed
+Cart service returned 5xx status=<num>,438,2026-06-01T20:30:52.086Z,2026-06-01T23:44:37.554Z,Cart service returned 5xx status=502
+Cart service timeout after 1002ms,4,2026-06-01T14:04:48.831Z,2026-06-01T22:32:45.225Z,Cart service timeout after 1002ms
+Cart service timeout after 596ms,4,2026-06-01T21:21:04.268Z,2026-06-01T22:10:33.930Z,Cart service timeout after 596ms
+Cart service timeout after 2450ms,3,2026-06-01T02:45:27.018Z,2026-06-01T11:15:48.413Z,Cart service timeout after 2450ms
+Cart service timeout after 1016ms,3,2026-06-01T04:45:40.303Z,2026-06-01T23:11:33.959Z,Cart service timeout after 1016ms
+Cart service timeout after 2940ms,3,2026-06-01T05:45:06.094Z,2026-06-01T22:23:49.510Z,Cart service timeout after 2940ms
+Cart service timeout after 1326ms,3,2026-06-01T08:04:42.027Z,2026-06-01T23:20:32.510Z,Cart service timeout after 1326ms
+Cart service timeout after 2367ms,3,2026-06-01T09:03:51.464Z,2026-06-01T23:41:06.003Z,Cart service timeout after 2367ms
+Cart service timeout after 832ms,3,2026-06-01T09:04:20.225Z,2026-06-01T22:25:13.614Z,Cart service timeout after 832ms
+Cart service timeout after 2674ms,3,2026-06-01T10:16:57.526Z,2026-06-01T23:17:35.215Z,Cart service timeout after 2674ms
+Cart service timeout after 2912ms,3,2026-06-01T10:40:00.502Z,2026-06-01T20:57:35.468Z,Cart service timeout after 2912ms
+Cart service timeout after 2202ms,3,2026-06-01T10:41:43.826Z,2026-06-01T22:25:11.091Z,Cart service timeout after 2202ms
+Cart service timeout after 1864ms,3,2026-06-01T11:13:37.831Z,2026-06-01T21:28:35.591Z,Cart service timeout after 1864ms
+Cart service timeout after 1042ms,3,2026-06-01T12:50:03.903Z,2026-06-01T16:24:12.766Z,Cart service timeout after 1042ms
+Cart service timeout after 2624ms,3,2026-06-01T13:55:37.839Z,2026-06-01T23:57:52.660Z,Cart service timeout after 2624ms
+Cart service timeout after 518ms,3,2026-06-01T17:48:55.541Z,2026-06-01T22:12:22.218Z,Cart service timeout after 518ms
+Cart service timeout after 1481ms,3,2026-06-01T18:05:50.994Z,2026-06-01T23:35:23.394Z,Cart service timeout after 1481ms

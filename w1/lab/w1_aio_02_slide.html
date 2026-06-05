@@ -1,0 +1,1569 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AIOps W1 - Nhóm W1_AIO_02</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f7fb;
+  --surface: #ffffff;
+  --surface-soft: #f8fafc;
+  --ink: #0f172a;
+  --muted: #475569;
+  --line: #dbe3ee;
+  --accent: #f59e0b;
+  --accent-2: #fb923c;
+  --blue: #2563eb;
+  --green: #16a34a;
+  --red: #dc2626;
+  --shadow: 0 18px 60px rgba(15, 23, 42, 0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-snap-type: y mandatory; scroll-behavior: smooth; }
+body {
+  font-family: "Plus Jakarta Sans", sans-serif;
+  background:
+    radial-gradient(circle at top right, rgba(245, 158, 11, 0.10), transparent 28%),
+    radial-gradient(circle at bottom left, rgba(37, 99, 235, 0.08), transparent 26%),
+    var(--bg);
+  color: var(--ink);
+  overflow-x: hidden;
+}
+.slide {
+  min-height: 100vh;
+  padding: clamp(28px, 4vw, 60px);
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.frame {
+  width: min(1240px, 100%);
+  min-height: min(88vh, 860px);
+  background: rgba(255,255,255,0.78);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(219, 227, 238, 0.8);
+  border-radius: 28px;
+  box-shadow: var(--shadow);
+  padding: clamp(28px, 3vw, 44px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+.frame::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.68), rgba(255,255,255,0.94)),
+    linear-gradient(135deg, rgba(245, 158, 11, 0.04), transparent 36%);
+  pointer-events: none;
+}
+.content { position: relative; z-index: 1; }
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-weight: 800;
+  color: #b45309;
+}
+.eyebrow::before {
+  content: "";
+  width: 34px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent-2));
+  border-radius: 999px;
+}
+h1, h2, h3 { letter-spacing: -0.03em; }
+h1 {
+  font-size: clamp(2.4rem, 5vw, 4.7rem);
+  line-height: 1.02;
+  margin-top: 18px;
+  font-weight: 800;
+}
+h2 {
+  font-size: clamp(1.7rem, 3vw, 2.7rem);
+  line-height: 1.08;
+  font-weight: 800;
+}
+h3 {
+  font-size: clamp(1rem, 1.5vw, 1.2rem);
+  font-weight: 750;
+  margin-bottom: 10px;
+}
+.lead {
+  margin-top: 14px;
+  color: var(--muted);
+  font-size: clamp(0.98rem, 1.35vw, 1.16rem);
+  line-height: 1.65;
+  max-width: 880px;
+}
+.gradient {
+  background: linear-gradient(135deg, #d97706, #ef4444 62%, #2563eb);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+.chip {
+  background: rgba(255,255,255,0.86);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.chip strong { color: var(--ink); }
+.grid { display: grid; gap: 18px; }
+.grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.card {
+  background: rgba(255,255,255,0.88);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 22px;
+}
+.card p, .card li, td {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.62;
+}
+.card strong { color: var(--ink); }
+.card-dark {
+  background: linear-gradient(135deg, #0f172a, #111827);
+  border-color: rgba(255,255,255,0.08);
+}
+.card-dark h3, .card-dark p, .card-dark li { color: #e5edf8; }
+.card-accent {
+  background: linear-gradient(135deg, rgba(245,158,11,0.12), rgba(255,255,255,0.9));
+  border-color: rgba(245,158,11,0.28);
+}
+.card-danger {
+  border-top: 4px solid var(--red);
+}
+.card-warn {
+  border-top: 4px solid var(--accent);
+}
+.card-blue {
+  border-top: 4px solid var(--blue);
+}
+.kpi {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 24px;
+}
+.kpi-box {
+  background: rgba(255,255,255,0.88);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+}
+.kpi-num {
+  font-family: "JetBrains Mono", monospace;
+  font-size: clamp(1.8rem, 2.8vw, 2.6rem);
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+.kpi-label {
+  margin-top: 8px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #64748b;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+.two-col-equal {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+.timeline {
+  margin-top: 8px;
+  position: relative;
+  padding-left: 28px;
+}
+.timeline::before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 4px;
+  bottom: 4px;
+  width: 2px;
+  background: linear-gradient(180deg, rgba(245,158,11,0.18), rgba(220,38,38,0.35));
+}
+.timeline-item {
+  position: relative;
+  padding-bottom: 16px;
+}
+.timeline-item::before {
+  content: "";
+  position: absolute;
+  left: -24px;
+  top: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 4px rgba(245,158,11,0.14);
+}
+.timeline-item.red::before {
+  background: var(--red);
+  box-shadow: 0 0 0 4px rgba(220,38,38,0.12);
+}
+.timeline-item.green::before {
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(22,163,74,0.14);
+}
+.timeline-time {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.78rem;
+  color: #b45309;
+  font-weight: 700;
+}
+.timeline-text {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.93rem;
+}
+.list {
+  list-style: none;
+  margin-top: 8px;
+}
+.list li {
+  padding: 10px 0 10px 18px;
+  position: relative;
+  border-bottom: 1px solid rgba(219, 227, 238, 0.75);
+  color: var(--muted);
+}
+.list li:last-child { border-bottom: none; }
+.list li::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  position: absolute;
+  left: 0;
+  top: 18px;
+  background: var(--accent);
+}
+.flow {
+  margin-top: 26px;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+  align-items: stretch;
+}
+.flow-step {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  text-align: center;
+}
+.flow-step strong {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 6px;
+}
+.arrow {
+  text-align: center;
+  font-size: 1.4rem;
+  color: var(--accent);
+  align-self: center;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 10px;
+  font-size: 0.9rem;
+}
+th, td {
+  text-align: left;
+  padding: 12px 10px;
+  border-bottom: 1px solid rgba(219, 227, 238, 0.85);
+  vertical-align: top;
+}
+th {
+  font-size: 0.76rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #92400e;
+}
+.image-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 14px;
+}
+.image-card img {
+  width: 100%;
+  display: block;
+  border-radius: 14px;
+  cursor: zoom-in;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+.image-card img:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.14);
+}
+.caption {
+  margin-top: 10px;
+  font-size: 0.86rem;
+  color: #64748b;
+}
+.footer {
+  margin-top: auto;
+  padding-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+}
+.pill {
+  display: inline-block;
+  padding: 5px 9px;
+  border-radius: 999px;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+.pill-red { background: rgba(220,38,38,0.12); color: var(--red); }
+.pill-green { background: rgba(22,163,74,0.12); color: var(--green); }
+.pill-blue { background: rgba(37,99,235,0.12); color: var(--blue); }
+.pill-amber { background: rgba(245,158,11,0.14); color: #b45309; }
+.role-tag {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  margin-right: 6px;
+  white-space: nowrap;
+}
+.role-pipeline { background: rgba(37,99,235,0.12); color: #2563eb; }
+.role-ml { background: rgba(245,158,11,0.14); color: #d97706; }
+.role-log { background: rgba(59,130,246,0.12); color: #3b82f6; }
+.role-consult { background: rgba(22,163,74,0.12); color: #16a34a; }
+.role-writer { background: rgba(99,102,241,0.12); color: #4f46e5; }
+.role-design { background: rgba(249,115,22,0.12); color: #ea580c; }
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.84);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 9999;
+}
+.lightbox.open { display: flex; }
+.lightbox-inner {
+  max-width: min(92vw, 1400px);
+  max-height: 92vh;
+  position: relative;
+}
+.lightbox img {
+  max-width: 100%;
+  max-height: 92vh;
+  display: block;
+  border-radius: 16px;
+  box-shadow: 0 28px 80px rgba(0,0,0,0.34);
+}
+.lightbox-close {
+  position: absolute;
+  top: -14px;
+  right: -14px;
+  width: 38px;
+  height: 38px;
+  border-radius: 999px;
+  border: none;
+  background: #fff;
+  color: #0f172a;
+  font-size: 1.1rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+}
+.lightbox-caption {
+  margin-top: 12px;
+  color: #e2e8f0;
+  text-align: center;
+  font-size: 0.94rem;
+}
+.nav-dots {
+  position: fixed;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 10;
+}
+.nav-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(100,116,139,0.28);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.nav-dot.active {
+  background: var(--accent);
+  transform: scale(1.35);
+}
+.counter {
+  position: fixed;
+  right: 24px;
+  bottom: 18px;
+  font-family: "JetBrains Mono", monospace;
+  color: #64748b;
+  font-size: 0.84rem;
+  z-index: 10;
+}
+.counter strong { color: var(--ink); }
+.progress {
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--accent), #ef4444, var(--blue));
+  z-index: 10;
+  width: 0;
+}
+  /* Architecture Diagram Styles */
+  --arch-bg-slide: #ffffff;
+  --arch-border-color: #cbd5e1;
+  --arch-text-title: #0f172a;
+  --arch-text-subtitle: #475569;
+  --arch-text-body: #334155;
+  --arch-text-muted: #64748b;
+  
+  --arch-color-blue-bg: #eff6ff;
+  --arch-color-blue-border: #3b82f6;
+  --arch-color-blue-text: #1d4ed8;
+  
+  --arch-color-orange-bg: #fff7ed;
+  --arch-color-orange-border: #ea580c;
+  --arch-color-orange-text: #c2410c;
+  
+  --arch-color-green-bg: #f0fdf4;
+  --arch-color-green-border: #16a34a;
+  --arch-color-green-text: #15803d;
+  
+  --arch-color-purple-bg: #faf5ff;
+  --arch-color-purple-border: #a855f7;
+  --arch-color-purple-text: #7e22ce;
+  
+  --arch-color-red-bg: #fef2f2;
+  --arch-color-red-border: #dc2626;
+  --arch-color-red-text: #b91c1c;
+  
+  --arch-color-gray-bg: #f8fafc;
+  --arch-color-gray-border: #cbd5e1;
+  --arch-color-gray-text: #475569;
+  
+  --arch-shadow-subtle: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --arch-shadow-md: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+}
+
+.arch-header {
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--border-color);
+  padding-bottom: 8px;
+}
+.arch-title-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+.arch-title {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--arch-text-title);
+  letter-spacing: -0.02em;
+}
+.arch-subtitle {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--arch-text-subtitle);
+  margin-top: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.arch-project-tag {
+  font-size: 11px;
+  font-weight: 700;
+  background-color: #f1f5f9;
+  color: #475569;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  border: 1px solid #e2e8f0;
+}
+
+.arch-section-a {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+  position: relative;
+}
+.arch-column {
+  background-color: var(--arch-bg-slide);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  box-shadow: var(--arch-shadow-subtle);
+}
+.arch-column-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--arch-text-title);
+  margin-bottom: 10px;
+  padding-bottom: 4px;
+  border-bottom: 2px solid var(--border-color);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.arch-column-inputs { border-top: 4px solid var(--arch-color-orange-border); }
+.arch-column-analysis { border-top: 4px solid var(--arch-color-purple-border); }
+.arch-column-engine { border-top: 4px solid var(--arch-color-blue-border); }
+.arch-column-outputs { border-top: 4px solid var(--arch-color-green-border); }
+
+.arch-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-grow: 1;
+  justify-content: flex-start;
+}
+.arch-block {
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  line-height: 1.35;
+  border: 1px solid transparent;
+  box-shadow: var(--arch-shadow-subtle);
+}
+.arch-block-title {
+  font-weight: 700;
+  font-size: 11px;
+  margin-bottom: 2px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.arch-block-meta {
+  font-size: 9.5px;
+  color: var(--arch-text-muted);
+  font-family: "JetBrains Mono", monospace;
+}
+.arch-block-list {
+  margin-top: 2px;
+  padding-left: 12px;
+  font-size: 10.5px;
+}
+
+.arch-orange-block {
+  background-color: var(--arch-color-orange-bg);
+  border-color: var(--arch-color-orange-border);
+  color: var(--arch-color-orange-text);
+}
+.arch-orange-block .arch-block-title { color: var(--arch-color-orange-text); }
+
+.arch-purple-block {
+  background-color: var(--arch-color-purple-bg);
+  border-color: var(--arch-color-purple-border);
+  color: var(--arch-color-purple-text);
+}
+.arch-purple-block .arch-block-title { color: var(--arch-color-purple-text); }
+
+.arch-blue-block {
+  background-color: var(--arch-color-blue-bg);
+  border-color: var(--arch-color-blue-border);
+  color: var(--arch-color-blue-text);
+}
+.arch-blue-block .arch-block-title { color: var(--arch-color-blue-text); }
+
+.arch-green-block {
+  background-color: var(--arch-color-green-bg);
+  border-color: var(--arch-color-green-border);
+  color: var(--arch-color-green-text);
+}
+.arch-green-block .arch-block-title { color: var(--arch-color-green-text); }
+
+.arch-red-block {
+  background-color: var(--arch-color-red-bg);
+  border-color: var(--arch-color-red-border);
+  color: var(--arch-color-red-text);
+}
+.arch-red-block .arch-block-title { color: var(--arch-color-red-text); }
+
+.arch-gray-block {
+  background-color: var(--arch-color-gray-bg);
+  border-color: var(--arch-color-gray-border);
+  color: var(--arch-color-gray-text);
+}
+.arch-gray-block .arch-block-title { color: var(--arch-color-gray-text); }
+
+.arch-rubric-box {
+  margin-top: auto;
+  background-color: #f8fafc;
+  border: 1px dashed #cbd5e1;
+  border-radius: 6px;
+  padding: 6px;
+  font-size: 10px;
+  text-align: center;
+  font-weight: 700;
+  color: #475569;
+}
+.arch-tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  background-color: #f1f5f9;
+  margin-bottom: 6px;
+  border: 1px solid #e2e8f0;
+}
+.arch-tech-badge.jupyter { color: #f37626; border-color: #ffedd5; background-color: #fff7ed; }
+.arch-tech-badge.python { color: #3572A5; border-color: #dbeafe; background-color: #eff6ff; }
+
+.arch-important-note {
+  font-size: 9.5px;
+  color: #b45309;
+  background-color: #fef3c7;
+  border: 1px solid #fde68a;
+  border-radius: 4px;
+  padding: 4px 6px;
+  margin: 4px 0;
+  font-weight: 600;
+}
+
+.arch-pipeline-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: stretch;
+}
+.arch-pipeline-step {
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  border: 1px solid;
+}
+.arch-pipeline-step-title {
+  font-weight: 700;
+  font-family: "JetBrains Mono", monospace;
+}
+.arch-pipeline-step-desc {
+  font-size: 8.5px;
+  color: var(--arch-text-muted);
+}
+.arch-flow-arrow-down {
+  text-align: center;
+  color: #94a3b8;
+  font-size: 10px;
+  margin: -3px 0;
+}
+.arch-command-badge {
+  background-color: #0f172a;
+  color: #38bdf8;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 9.5px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.arch-repro-footer {
+  margin-top: auto;
+  font-size: 9.5px;
+  color: #047857;
+  background-color: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 4px;
+  padding: 4px 6px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.arch-section-b {
+  border-top: 1px solid var(--border-color);
+  padding-top: 10px;
+}
+.arch-section-b-title {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--arch-text-title);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.arch-cards-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.arch-review-card {
+  background-color: var(--arch-color-gray-bg);
+  border: 1px solid var(--arch-color-gray-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.arch-review-card-title {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--arch-text-title);
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+.arch-review-card-content {
+  font-size: 10px;
+  color: var(--arch-text-body);
+  line-height: 1.35;
+}
+.arch-topic-tag {
+  display: inline-block;
+  background-color: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 8.5px;
+  margin: 1.5px;
+  font-weight: 600;
+  color: #475569;
+}
+.arch-pattern-box {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  text-align: center;
+  margin-top: 3px;
+}
+.arch-pattern-item {
+  background-color: #fff;
+  padding: 2px;
+  border-radius: 4px;
+  border: 1px solid #e2e8f0;
+  font-weight: 700;
+  font-size: 8.5px;
+}
+.arch-pattern-item.narrative { color: var(--arch-color-orange-text); border-color: var(--arch-color-orange-border); }
+.arch-pattern-item.compute { color: var(--arch-color-blue-text); border-color: var(--arch-color-blue-border); }
+
+@media (max-width: 980px) {
+  .grid-3, .grid-4, .kpi, .flow, .two-col, .two-col-equal { grid-template-columns: 1fr; }
+  .frame { min-height: auto; }
+  .nav-dots { display: none; }
+  .arch-section-a, .arch-cards-row { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<div class="nav-dots" id="navDots"></div>
+<div class="counter" id="counter"><strong>01</strong> / 10</div>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">AIOps W1 - Nhóm W1_AIO_02</div>
+      <h1>Detect &amp; Triage<br><span class="gradient">Sự cố ShopX cart-service</span></h1>
+      <p class="lead">
+        Báo cáo này tổng hợp phân tích 24 giờ telemetry để trả lời 3 câu hỏi của bài lab:
+        <strong>WHEN</strong> anomaly bắt đầu, <strong>WHERE</strong> tín hiệu sớm nhất xuất hiện, va <strong>WHAT</strong>
+        là root cause thực sự dẫn đến restart loop và cascade timeout.
+      </p>
+      <div class="meta">
+        <div class="chip">Dataset: <strong>metrics + logs, 2026-06-01 UTC</strong></div>
+        <div class="chip">Service gốc: <strong>cart-service</strong></div>
+        <div class="chip">Alert production bắn: <strong>23:04 UTC</strong></div>
+        <div class="chip">Core methods: <strong>CUSUM + IF + log template mining</strong></div>
+      </div>
+      <div class="kpi">
+        <div class="kpi-box">
+          <div class="kpi-num">16h33m</div>
+          <div class="kpi-label">Silent Window từ JVM Signal đến Alert</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-num">7</div>
+          <div class="kpi-label">Restarts đến 23:43</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-num">1.74GB</div>
+          <div class="kpi-label">Peak Memory trước OOMKill</div>
+        </div>
+        <div class="kpi-box">
+          <div class="kpi-num">2655</div>
+          <div class="kpi-label">Cache Eviction Failures</div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 01 - Mở đầu</span><span>AIOps W1 Lab</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <!-- Header -->
+      <div class="arch-header">
+        <div class="arch-title-wrapper">
+          <div>
+            <h1 class="arch-title">W1_AIO_02 Recommended Architecture – End-to-End Processing Pipeline</h1>
+            <div class="arch-subtitle">Recommended Production Workflow</div>
+          </div>
+          <span class="arch-project-tag">ShopX Anomaly Detection Project</span>
+        </div>
+      </div>
+
+      <!-- Section A: Processing Pipeline (80%) -->
+      <div class="arch-section-a">
+        <!-- Column 1: Raw Inputs -->
+        <div class="arch-column arch-column-inputs">
+          <h2 class="arch-column-title">1. Raw Inputs</h2>
+          <div class="arch-card-stack">
+            <div class="arch-block arch-orange-block">
+              <div class="arch-block-title">
+                <span>CSV Files</span>
+                <span class="arch-block-meta">metrics.csv</span>
+              </div>
+              <div class="arch-block-list">
+                <div>• Latency & CPU metrics</div>
+                <div>• Memory & Response time</div>
+              </div>
+            </div>
+
+            <div class="arch-block arch-orange-block">
+              <div class="arch-block-title">
+                <span>JSON Logs</span>
+                <span class="arch-block-meta">logs.jsonl</span>
+              </div>
+              <div class="arch-block-list">
+                <div>• Structured events</div>
+                <div>• System & application logs</div>
+              </div>
+            </div>
+
+            <div class="arch-rubric-box">
+              Rubric Coverage:<br>WHO / WHAT / WHEN / WHERE
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 2: Analysis & Exploration Layer -->
+        <div class="arch-column arch-column-analysis">
+          <h2 class="arch-column-title">2. Analysis & Exploration</h2>
+          <div class="arch-card-stack">
+            <div class="arch-tech-badge jupyter">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm1.8 17.16c0 .7-.56 1.27-1.27 1.27-.7 0-1.27-.57-1.27-1.27 0-.7.56-1.27 1.27-1.27.7 0 1.27.57 1.27 1.27zm-1.27-3.18c-.46 0-.83-.37-.83-.83V8.33c0-.46.37-.83.83-.83s.83.37.83.83v4.82c0 .46-.37.83-.83.83z"/></svg>
+              Jupyter Notebook
+            </div>
+            
+            <div class="arch-block arch-purple-block">
+              <div class="arch-block-title">analysis.ipynb</div>
+              <div style="font-size: 10px; margin-top: 2px; line-height: 1.3;">
+                • Exploratory Data Analysis<br>
+                • Data Visualization &amp; Charts<br>
+                • Statistical Investigation<br>
+                • Interactive Inspection<br>
+                • Root Cause Exploration
+              </div>
+            </div>
+
+            <div class="arch-important-note">
+              ⚠️ Calls reusable scripts instead of duplicating logic.
+            </div>
+
+            <div class="arch-block arch-gray-block" style="padding: 6px;">
+              <div style="font-size: 9px; font-weight: bold; margin-bottom: 2px;">Purpose:</div>
+              <div style="font-size: 8.5px; color: var(--arch-text-body); line-height: 1.2;">
+                Explain findings • Inspect charts • Validate hypotheses • Review anomalies
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 3: Processing Engine -->
+        <div class="arch-column arch-column-engine">
+          <h2 class="arch-column-title">3. Processing Engine</h2>
+          <div class="arch-card-stack">
+            <div class="arch-tech-badge python">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12s5.37 12 12 12 12-5.37 12-12S18.63 0 12 0zm3.3 16.5H8.7v-1.2h6.6v1.2zm0-2.4H8.7v-1.2h6.6v1.2zm0-2.4H8.7V9.3h6.6v1.2z"/></svg>
+              Python Script Engine
+            </div>
+
+            <div class="arch-command-badge">
+              make analyze &rarr; run_pipeline.py
+            </div>
+
+            <div class="arch-pipeline-flow">
+              <div class="arch-pipeline-step arch-blue-block">
+                <div class="arch-pipeline-step-title">validate_data.py</div>
+                <div class="arch-pipeline-step-desc">Schema, Timestamps, Parsing</div>
+              </div>
+              
+              <div class="arch-flow-arrow-down">&darr;</div>
+
+              <div class="arch-pipeline-step arch-blue-block">
+                <div class="arch-pipeline-step-title">feature_engineering.py</div>
+                <div class="arch-pipeline-step-desc">Rolling stats, Trends, Aggregation</div>
+              </div>
+
+              <div class="arch-flow-arrow-down">&darr;</div>
+
+              <div class="arch-pipeline-step arch-red-block">
+                <div class="arch-pipeline-step-title">anomaly_detection.py</div>
+                <div class="arch-pipeline-step-desc">Z-Score, MAD, Isolation Forest, CUSUM</div>
+              </div>
+
+              <div class="arch-flow-arrow-down">&darr;</div>
+
+              <div class="arch-pipeline-step arch-purple-block">
+                <div class="arch-pipeline-step-title">correlation_engine.py</div>
+                <div class="arch-pipeline-step-desc">Event correlation, RCA timeline</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Column 4: Generated Outputs -->
+        <div class="arch-column arch-column-outputs">
+          <h2 class="arch-column-title">4. Deliverables</h2>
+          <div class="arch-card-stack">
+            <div class="arch-block arch-gray-block" style="padding: 5px 8px;">
+              <div class="arch-block-title" style="margin-bottom: 2px;">📁 reports/</div>
+              <div style="font-size: 9px; font-family: monospace; line-height: 1.2;">
+                validation_summary.json<br>
+                anomaly_report.csv<br>
+                correlation_timeline.csv
+              </div>
+            </div>
+
+            <div class="arch-block arch-gray-block" style="padding: 5px 8px;">
+              <div class="arch-block-title" style="margin-bottom: 2px;">📁 figures/</div>
+              <div style="font-size: 9px; font-family: monospace; line-height: 1.2;">
+                anomaly_charts.png<br>
+                memory_trends.png<br>
+                latency_spikes.png
+              </div>
+            </div>
+
+            <div class="arch-block arch-green-block" style="padding: 5px 8px;">
+              <div class="arch-block-title" style="margin-bottom: 2px;">📄 FINDINGS.md</div>
+              <div style="font-size: 8.5px; line-height: 1.2;">Executive Summary, Key Findings, Root Causes &amp; Actions</div>
+            </div>
+
+            <div class="arch-block arch-green-block" style="padding: 5px 8px;">
+              <div class="arch-block-title" style="margin-bottom: 2px;">📄 SUBMISSION.md</div>
+              <div style="font-size: 8.5px; line-height: 1.2;">Team Contributions &amp; Self Reflection</div>
+            </div>
+
+            <div class="arch-repro-footer">
+              🔄 100% Reproducible from Raw Data
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section B: Review & Evaluation Criteria (20%) -->
+      <div class="arch-section-b">
+        <h2 class="arch-section-b-title">Review &amp; Evaluation Criteria</h2>
+        <div class="arch-cards-row">
+          <div class="arch-review-card">
+            <h3 class="arch-review-card-title">Recommended Pattern</h3>
+            <div class="arch-review-card-content">
+              <p style="margin-bottom: 4px;">Maintainability and reproducibility are guaranteed by decoupling roles:</p>
+              <div class="arch-pattern-box">
+                <div class="arch-pattern-item narrative">Notebook = Narrative<br><span style="font-weight:normal; font-size:8px;">Explains decisions</span></div>
+                <div class="arch-pattern-item compute">Scripts = Compute<br><span style="font-weight:normal; font-size:8px;">Runs processing</span></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="arch-review-card">
+            <h3 class="arch-review-card-title">Evaluation Coverage</h3>
+            <div class="arch-review-card-content" style="display: flex; flex-direction: column; gap: 2px; line-height: 1.2;">
+              <div><span class="arch-checkmark">✓</span> Raw data &rarr; result traceability</div>
+              <div><span class="arch-checkmark">✓</span> Multiple anomaly detection methods</div>
+              <div><span class="arch-checkmark">✓</span> Pattern extraction &amp; timeline alignment</div>
+              <div><span class="arch-checkmark">✓</span> Root cause investigation (WHEN/WHERE/WHAT)</div>
+              <div><span class="arch-checkmark">✓</span> Evidence-backed findings</div>
+            </div>
+          </div>
+
+          <div class="arch-review-card">
+            <h3 class="arch-review-card-title">Knowledge Applied</h3>
+            <div class="arch-review-card-content" style="line-height: 1.3;">
+              <span class="arch-topic-tag">Time Series Analysis</span>
+              <span class="arch-topic-tag">Feature Engineering</span>
+              <span class="arch-topic-tag">Anomaly Detection</span>
+              <span class="arch-topic-tag">Log Mining</span>
+              <span class="arch-topic-tag">Root Cause Analysis</span>
+              <span class="arch-topic-tag">Statistical Correlation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 02 - Kiến trúc</span><span>Notebook + Script Pipeline</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Tóm tắt điều hành</div>
+      <h2>Câu chuyện sự cố trong một slide</h2>
+      <div class="two-col">
+        <div class="card card-accent">
+          <h3>Điều gì đã xảy ra</h3>
+          <p>
+            <code>cart-service</code> gặp một sự cố memory-pressure tăng dần do lặp lại
+            <strong>ProductCatalogCache eviction failure</strong>. Heap growth kích hoạt JVM GC stress,
+            sau đó là các lần restart do <code>OOMKilled</code>, và cuối cùng lan thành cascade lỗi gateway cùng upstream timeout.
+          </p>
+          <ul class="list">
+            <li>Tín hiệu JVM stress sớm nhất: <strong>06:30:19Z</strong></li>
+            <li>Tín hiệu gốc từ cache đầu tiên: <strong>06:32:33Z</strong></li>
+            <li>OOMKill đầu tiên: <strong>19:59:02Z</strong></li>
+            <li>Alert production bắn: <strong>23:04:00Z</strong></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>Vì sao điều này quan trọng</h3>
+          <p>
+            Stack alerting hiện tại phản ứng quá muộn và phụ thuộc vào các triệu chứng nhận thấy ở tầng người dùng như
+            <code>5xx</code> và restart count. Trong khi đó anomaly đã bắt đầu từ nhiều giờ trước và đã lộ rõ
+            qua log patterns cùng memory drift tăng dần.
+          </p>
+          <table>
+            <thead>
+              <tr><th>Câu hỏi</th><th>Trả lời</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>WHEN</td><td>Silent degradation bắt đầu từ buổi sáng, hard failure xảy ra vào buổi tối</td></tr>
+              <tr><td>WHERE</td><td>cart-service memory, GC, and log templates</td></tr>
+              <tr><td>WHAT</td><td>Cache eviction failure -&gt; memory retention -&gt; OOMKill -&gt; restart loop</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 02 - Tóm tắt điều hành</span><span>Postmortem Overview</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">WHEN</div>
+      <h2>Dòng thời gian từ silent signal đến alert</h2>
+      <div class="two-col">
+        <div class="card">
+          <div class="timeline">
+            <div class="timeline-item">
+              <div class="timeline-time">06:30:19</div>
+              <div class="timeline-text">Xuất hiện <strong>GC overhead limit warning</strong> đầu tiên trong cart logs. JVM stress đã bắt đầu từ đây.</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-time">06:32:33</div>
+              <div class="timeline-text">Xuất hiện <strong>ProductCatalogCache eviction failed</strong> đầu tiên. Đây là clue root-cause sớm mạnh nhất.</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-time">09:01:00</div>
+              <div class="timeline-text">1-hour memory rolling mean bắt đầu xu hướng tăng bền vững.</div>
+            </div>
+            <div class="timeline-item">
+              <div class="timeline-time">18:22:00</div>
+              <div class="timeline-text">Memory lần đầu vượt <strong>60%</strong> của giới hạn 2 GB.</div>
+            </div>
+            <div class="timeline-item red">
+              <div class="timeline-time">19:59:02</div>
+              <div class="timeline-text"><strong>OOMKilled</strong> đầu tiên. Heap đã đạt khoảng <strong>1.74 GB</strong>.</div>
+            </div>
+            <div class="timeline-item red">
+              <div class="timeline-time">23:04:00</div>
+              <div class="timeline-text">Production alert cuối cùng mới bắn, rất lâu sau tín hiệu silent đầu tiên.</div>
+            </div>
+            <div class="timeline-item green">
+              <div class="timeline-time">23:43:00</div>
+              <div class="timeline-text">Restart loop đạt tổng cộng <strong>7</strong> lần restart.</div>
+            </div>
+          </div>
+        </div>
+        <div class="image-card">
+          <img src="artifacts/chart_07_incident_timeline.png" alt="Incident timeline">
+          <div class="caption">
+            Incident timeline from earliest JVM stress to alert. This visual is the clearest single summary of the failure progression.
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 03 - WHEN</span><span>Phân tích timeline</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">WHERE</div>
+      <h2>Tín hiệu sớm nhất và đường lan truyền sự cố</h2>
+      <div class="flow">
+        <div class="flow-step"><strong style="color:var(--red)">cart-service</strong>Memory drift<br>GC stress<br>OOMKill</div>
+        <div class="flow-step"><strong style="color:#0f766e">api-gateway</strong>cart_upstream_error_rate<br>&gt; 5% at 20:39</div>
+        <div class="flow-step"><strong style="color:var(--blue)">order-service</strong>upstream_timeout_rate<br>&gt; 5% at 20:56</div>
+        <div class="flow-step"><strong style="color:#4338ca">payment-service</strong>upstream_timeout_rate<br>&gt; 5% at 21:24</div>
+      </div>
+      <div class="grid grid-3" style="margin-top:24px;">
+        <div class="card card-danger">
+          <h3>Tín hiệu metric</h3>
+          <p><strong>memory_usage_bytes</strong> là tín hiệu metric mạnh nhất ở từng service. Sustained anomaly trở nên đủ rõ về mặt vận hành vào <strong>16:20:30Z</strong>.</p>
+        </div>
+        <div class="card card-warn">
+          <h3>Tín hiệu log</h3>
+          <p><strong>GC overhead warning</strong> and <strong>cache eviction failed</strong> xuất hiện sớm hơn rất nhiều so với các metric lỗi hướng người dùng.</p>
+        </div>
+        <div class="card card-blue">
+          <h3>Tín hiệu lan truyền</h3>
+          <p>Thứ tự downstream degradation xác nhận <strong>cart-service là nguồn phát sự cố</strong>, không phải service bị ảnh hưởng thụ động.</p>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 04 - WHERE</span><span>Nguồn gốc và lan truyền</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">WHAT</div>
+      <h2>Giả thuyết root cause và bằng chứng</h2>
+      <div class="grid grid-3" style="margin-top:24px;">
+        <div class="card card-danger">
+          <div class="pill pill-red">Root Cause</div>
+          <h3 style="margin-top:10px;">ProductCatalogCache eviction failure</h3>
+          <p><code>ProductCatalogCache eviction failed: heap pressure too high</code></p>
+          <p>Pattern này lặp lại <strong>2655</strong> lần, khiến nó trở thành clue mạnh nhất ở từng cơ chế cho thấy heap bị giữ lại thay vì được giải phóng.</p>
+        </div>
+        <div class="card card-warn">
+          <div class="pill pill-amber">JVM Layer</div>
+          <h3 style="margin-top:10px;">GC thrashing</h3>
+          <p><code>GC overhead limit warning</code></p>
+          <p>GC warnings bắt đầu từ <strong>06:30:19Z</strong> và lặp lại <strong>2117</strong> lần, cho thấy JVM stress nặng trước cả khi service fail rõ rệt.</p>
+        </div>
+        <div class="card card-blue">
+          <div class="pill pill-blue">Failure Mode</div>
+          <h3 style="margin-top:10px;">OOMKill - restart loop</h3>
+          <p><code>OutOfMemoryError imminent</code> -&gt; <code>Container OOMKilled</code> -&gt; <code>Application starting up</code></p>
+          <p>Chuỗi này xác nhận hard memory exhaustion rồi nối tiếp bằng các lần restart lặp đi lặp lại.</p>
+        </div>
+      </div>
+      <div class="card card-dark" style="margin-top:22px;">
+        <h3>Chuỗi nhân quả</h3>
+        <p>
+          ProductCatalogCache eviction failure -&gt; heap usage tăng dần -&gt; JVM GC pause tăng -&gt; p99 latency and 5xx increase -&gt;
+          Kubernetes OOMKills container -&gt; restart loop bắt đầu -&gt; api-gateway, order-service, and payment-service cùng gánh upstream failure.
+        </p>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 05 - WHAT</span><span>Phân tích root cause</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Bằng chứng metric</div>
+      <h2>Memory leo thang và restart loop</h2>
+      <div class="two-col">
+        <div class="image-card">
+          <img src="artifacts/chart_03_memory_annotated.png" alt="Memory escalation chart">
+          <div class="caption">
+            Click để phóng to ảnh. Đây là biểu đồ evidence mạnh nhất và gom memory growth, ngđang 60%, OOMKill, và restart loop trên cùng một timeline.
+          </div>
+        </div>
+        <div class="card">
+          <h3>Biểu đồ này chứng minh gì</h3>
+          <ul class="list">
+            <li>Memory tương đối ổn định vào ban đêm và đầu buổi sáng.</li>
+            <li>Sau giai đoạn warning buổi sáng, memory bước vào một quãng tăng dần kéo dài.</li>
+            <li>Đến <strong>18:22Z</strong>, memory vượt 60% giới hạn và tiếp tục leo thang.</li>
+            <li>Tại <strong>19:59Z</strong>, memory tụt mạnh ngay sau OOMKill, đây là signature của forced container restart.</li>
+            <li>Các sawtooth pattern về sau cho thấy service restart nhiều lần rồi nhanh chóng quay lại trạng thái lỗi.</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 06 - Bằng chứng metric</span><span>Memory và restart</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Chiến lược phát hiện</div>
+      <h2>So sánh phương pháp và khuyến nghị cuối</h2>
+      <div class="two-col">
+        <div class="image-card">
+          <img src="artifacts/chart_04_anomaly_comparison.png" alt="Anomaly comparison">
+          <div class="caption">
+            EWMA gi?p b?t t?n hi?u l?ch nh? s?m h?n Rolling Z-score, Isolation Forest m?nh ? l?ch ?a bi?n, v? CUSUM l? l?a ch?n kh?i ni?m t?t nh?t cho gradual drift.
+          </div>
+        </div>
+        <div class="grid" style="gap:16px;">
+          <div class="card card-accent">
+            <h3>Stack đã chốt</h3>
+            <p><strong>Primary:</strong> CUSUM cho continuous drift detection</p>
+            <p><strong>Secondary:</strong> Isolation Forest cho multivariate support</p>
+            <p><strong>Baseline:</strong> Rolling Z-score để giải thích dễ hơn</p>
+            <p><strong>Không dùng làm primary:</strong> STL, vì core của project là online detection chứ không phải offline decomposition</p>
+          </div>
+          <div class="card">
+            <h3>Vì sao CUSUM là lựa chọn chính</h3>
+            <p>
+              Incident này là một <strong>gradual drift</strong>, không phải một spike đơn lẻ. CUSUM là sequential detector được thiết kế cho các small sustained mean shifts, nên phù hợp với pattern memory leak hơn STL hay threshold-only alerting.
+            </p>
+          </div>
+          <div class="card">
+            <h3>Vì sao logs vẫn là bằng chứng sớm nhất</h3>
+            <p>
+              Ngay cả khi statistical methods trigger khá sớm, bằng chứng sớm nhất và dễ bảo vệ nhất trong dataset này vẫn là log-based:
+              <strong>GC overhead warning</strong> and <strong>cache eviction failed</strong>.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 07 - Chiến lược phát hiện</span><span>CUSUM + IF + Logs</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Tác động nghiệp vụ</div>
+      <h2>Lan thành lỗi hướng người dùng</h2>
+      <div class="two-col">
+        <div class="image-card">
+          <img src="artifacts/chart_05_multiservice_5xx.png" alt="Biểu đồ lan truyền lỗi giữa các service">
+          <div class="caption">
+            Click để phóng to ảnh. Sự lan truyền lỗi giữa các service xác nhận hướng lan truyền từ cart-service sang gateway và các business services phía sau.
+          </div>
+        </div>
+        <div class="card">
+          <h3>Tác động quan sát được</h3>
+          <table>
+            <thead>
+              <tr><th>Service</th><th>Metric</th><th>Peak</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>cart-service</td><td>HTTP 5xx rate</td><td>16.14%</td></tr>
+              <tr><td>api-gateway</td><td>cart_upstream_error_rate</td><td>20.16%</td></tr>
+              <tr><td>order-service</td><td>upstream_timeout_rate</td><td>27.75%</td></tr>
+              <tr><td>payment-service</td><td>upstream_timeout_rate</td><td>15.95%</td></tr>
+            </tbody>
+          </table>
+          <p style="margin-top:14px;">
+            Hậu quả nghiệp vụ không chỉ là hạ tầng mất ổn định. Nó là một checkout path bị gãy:
+            người dùng không còn tin cậy được giỏ hàng, order creation bị suy giảm, và payment traffic bị triệt tiêu gián tiếp.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 08 - Impact</span><span>Suy giảm user và service</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Kế hoạch hành động</div>
+      <h2>Khuyến nghị khắc phục và AIOps Pipeline</h2>
+      <div class="grid grid-2" style="margin-top:24px;">
+        <div class="card card-danger">
+          <h3>Khắc phục ngay</h3>
+          <ul class="list">
+            <li>Sửa <code>ProductCatalogCache</code> eviction logic và áp bounded cache size.</li>
+            <li>Thêm direct alerting cho <code>OutOfMemoryError imminent</code>, <code>OOMKilled</code>, và restart increments.</li>
+            <li>Thu thập heap dump hoặc profiling artifact khi xảy ra OOM conditions.</li>
+          </ul>
+        </div>
+        <div class="card card-blue">
+          <h3>Khuyến nghị pipeline</h3>
+          <ul class="list">
+            <li>Prometheus metrics mỗi 30 giây</li>
+            <li>Loki / structured logs vài template counting</li>
+            <li>CUSUM trên memory rolling mean và GC pressure</li>
+            <li>Isolation Forest trên sliding-window multivariate health score</li>
+            <li>Correlation gate trước khi paging để giảm noise</li>
+          </ul>
+        </div>
+      </div>
+      <div class="card card-accent" style="margin-top:22px;">
+        <h3>Bài học chính</h3>
+        <p>
+          Alerts thường là đoạn cuối của câu chuyện chứ không phải điểm bắt đầu. Một AIOps pipeline mạnh hơn phải phát hiện
+          silent degradation sớm hơn bằng cách kết hợp <strong>drift detection</strong>, <strong>log-pattern evidence</strong>,
+          và <strong>service correlation</strong>.
+        </p>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 09 - Khuyến nghị</span><span>Fixes và pipeline</span></div>
+  </div>
+</section>
+
+<section class="slide">
+  <div class="frame">
+    <div class="content">
+      <div class="eyebrow">Member Contributions</div>
+      <h2>Phân chia công việc &amp; Tỷ lệ đóng góp</h2>
+      <p class="lead">Tinh thần đồng đội và phân bổ công việc công bằng trong nhóm W1_AIO_02</p>
+      <div class="two-col-equal">
+        <div class="card">
+          <table>
+            <thead>
+              <tr>
+                <th>STT</th>
+                <th>Thành viên</th>
+                <th>Vai trò &amp; đóng góp chính</th>
+                <th>Tỷ lệ</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td><strong>Trần Quốc Kiệt</strong></td>
+                <td><span class="role-tag role-pipeline">Pipeline Architect</span> Thiết kế sơ đồ tự động hóa quy trình.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td><strong>Phạm Vũ Khánh Trường</strong></td>
+                <td><span class="role-tag role-pipeline">Pipeline Engineer</span> Triển khai sơ đồ và biên soạn tài liệu vận hành.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td><strong>Nguyễn Đức Hào</strong></td>
+                <td><span class="role-tag role-ml">ML Engineer</span> Cài đặt lõi Multivariate Isolation Forest.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td><strong>Đặng Thị Ngọc Thảo</strong></td>
+                <td><span class="role-tag role-log">Log Specialist</span> Xử lý log .jsonl và cấu hình Drain3.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td><strong>Bùi Lê Anh Tuấn</strong></td>
+                <td><span class="role-tag role-consult">Consultant</span> Chủ trì phản biện, so sánh và lựa chọn phương pháp.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>6</td>
+                <td><strong>Ngô Thanh Kiên</strong></td>
+                <td><span class="role-tag role-consult">Consultant</span> Nghiên cứu lọc nhiễu và tối ưu tham số.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>7</td>
+                <td><strong>Nguyễn T. Hoàng Thịnh</strong></td>
+                <td><span class="role-tag role-writer">Technical Writer</span> Tổng hợp số liệu và viết báo cáo FINDINGS.md.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>8</td>
+                <td><strong>Lê Hải Khoa</strong></td>
+                <td><span class="role-tag role-writer">Technical Writer</span> Tổng hợp Group Reflection và viết SUBMIT.md.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+              <tr>
+                <td>9</td>
+                <td><strong>Nguyễn P. Anh Bảo</strong></td>
+                <td><span class="role-tag role-design">Designer</span> Thiết kế slide báo cáo và trực quan hóa kết quả.</td>
+                <td><strong>11.1%</strong></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card card-accent">
+          <h3>Tổng kết đóng góp nhóm</h3>
+          <p>Mỗi thành viên tham gia sâu sắc vào một mảng riêng biệt nhưng phối hợp rất chặt chẽ.</p>
+          <p style="margin-top:12px;">
+            Các vai trò được phân chia đồng đều từ kiến trúc pipeline, mô hình ML phát hiện bất thường,
+            xử lý dữ liệu log, phản biện học thuật cho đến viết tài liệu báo cáo sự cố chuyên sâu và thiết kế slide thuyết trình.
+          </p>
+          <p style="margin-top:12px; color:#16a34a; font-weight:800;">
+            Tất cả thành viên đạt tỷ lệ đóng góp đồng đều 11.1%.
+          </p>
+        </div>
+      </div>
+    </div>
+    <div class="footer"><span>Slide 10 - Đóng góp thành viên</span><span>W1_AIO_02</span></div>
+  </div>
+</section>
+
+<div class="lightbox" id="lightbox" aria-hidden="true">
+  <div class="lightbox-inner">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Đóng ảnh">×</button>
+    <img id="lightboxImage" src="" alt="Ảnh phóng to">
+    <div class="lightbox-caption" id="lightboxCaption"></div>
+  </div>
+</div>
+
+<script>
+class Deck {
+  constructor() {
+    this.slides = [...document.querySelectorAll(".slide")];
+    this.nav = document.getElementById("navDots");
+    this.counter = document.getElementById("counter");
+    this.progress = document.getElementById("progress");
+    this.total = this.slides.length;
+    this.current = 0;
+    this.wheelLock = false;
+    this.buildDots();
+    this.observe();
+    this.bind();
+    this.update(0);
+  }
+  buildDots() {
+    this.slides.forEach((_, i) => {
+      const dot = document.createElement("button");
+      dot.className = "nav-dot";
+      dot.addEventListener("click", () => this.scrollTo(i));
+      this.nav.appendChild(dot);
+    });
+    this.dots = [...this.nav.querySelectorAll(".nav-dot")];
+  }
+  observe() {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.55) {
+          const idx = this.slides.indexOf(entry.target);
+          if (idx >= 0) this.update(idx);
+        }
+      });
+    }, { threshold: 0.55 });
+    this.slides.forEach((slide) => observer.observe(slide));
+  }
+  update(idx) {
+    this.current = idx;
+    this.dots.forEach((dot, i) => dot.classList.toggle("active", i === idx));
+    this.counter.innerHTML = `<strong>${String(idx + 1).padStart(2, "0")}</strong> / ${this.total}`;
+    this.progress.style.width = `${((idx + 1) / this.total) * 100}%`;
+  }
+  scrollTo(idx) {
+    this.slides[idx].scrollIntoView({ behavior: "smooth" });
+  }
+  move(step) {
+    const next = Math.max(0, Math.min(this.total - 1, this.current + step));
+    this.scrollTo(next);
+  }
+  bind() {
+    document.addEventListener("keydown", (e) => {
+      if (["ArrowRight", "ArrowDown", "PageDown", "Space"].includes(e.code)) {
+        e.preventDefault();
+        this.move(1);
+      }
+      if (["ArrowLeft", "ArrowUp", "PageUp"].includes(e.code)) {
+        e.preventDefault();
+        this.move(-1);
+      }
+      if (e.code === "Home") this.scrollTo(0);
+      if (e.code === "End") this.scrollTo(this.total - 1);
+    });
+    document.addEventListener("wheel", (e) => {
+      if (this.wheelLock) return;
+      this.wheelLock = true;
+      setTimeout(() => this.wheelLock = false, 650);
+      this.move(e.deltaY > 0 ? 1 : -1);
+    }, { passive: true });
+    let startY = 0;
+    document.addEventListener("touchstart", (e) => startY = e.touches[0].clientY, { passive: true });
+    document.addEventListener("touchend", (e) => {
+      const diff = startY - e.changedTouches[0].clientY;
+      if (Math.abs(diff) > 60) this.move(diff > 0 ? 1 : -1);
+    }, { passive: true });
+  }
+}
+function initLightbox() {
+  const lightbox = document.getElementById("lightbox");
+  const lightboxImage = document.getElementById("lightboxImage");
+  const lightboxCaption = document.getElementById("lightboxCaption");
+  const lightboxClose = document.getElementById("lightboxClose");
+  const images = document.querySelectorAll(".image-card img");
+
+  function closeLightbox() {
+    lightbox.classList.remove("open");
+    lightbox.setAttribute("aria-hidden", "true");
+    lightboxImage.src = "";
+    lightboxCaption.textContent = "";
+  }
+
+  images.forEach((img) => {
+    img.addEventListener("click", () => {
+      lightboxImage.src = img.src;
+      lightboxImage.alt = img.alt || "Ảnh phóng to";
+      const caption = img.closest(".image-card")?.querySelector(".caption")?.textContent?.trim() || "";
+      lightboxCaption.textContent = caption;
+      lightbox.classList.add("open");
+      lightbox.setAttribute("aria-hidden", "false");
+    });
+  });
+
+  lightboxClose.addEventListener("click", closeLightbox);
+  lightbox.addEventListener("click", (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeLightbox();
+  });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  new Deck();
+  initLightbox();
+});
+</script>
+</body>
+</html>

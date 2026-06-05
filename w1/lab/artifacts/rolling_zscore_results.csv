@@ -1,0 +1,5 @@
+metric,first_anomaly,points_flagged,percent_flagged,false_positive_points_before_15_00
+memory_usage_bytes,2026-06-01T01:55:30+00:00,36,1.28,15
+jvm_gc_pause_ms_avg,2026-06-01T05:51:00+00:00,20,0.71,5
+http_p99_latency_ms,2026-06-01T00:46:00+00:00,42,1.49,17
+http_5xx_rate,2026-06-01T11:19:30+00:00,11,0.39,1

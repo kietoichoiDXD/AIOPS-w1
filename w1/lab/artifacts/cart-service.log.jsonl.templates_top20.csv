@@ -1,0 +1,21 @@
+template,count,first_seen,last_seen,sample
+Health check passed,3213,2026-06-01T00:00:38.490Z,2026-06-01T23:59:11.636Z,Health check passed
+Item added to cart for userId=<id>,3086,2026-06-01T00:00:03.001Z,2026-06-01T23:58:30.652Z,Item added to cart for userId=97782
+DB query executed table=cart rows=<num>,2821,2026-06-01T00:00:24.064Z,2026-06-01T23:59:03.623Z,DB query executed table=cart rows=474
+ProductCatalogCache eviction failed: heap pressure too high,2655,2026-06-01T06:32:33.431Z,2026-06-01T23:59:37.109Z,ProductCatalogCache eviction failed: heap pressure too high
+Checkout completed orderId=ORD-<num>,2021,2026-06-01T00:00:30.800Z,2026-06-01T23:59:07.941Z,Checkout completed orderId=ORD-67284058
+ProductCatalogCache loaded <num> entries,1836,2026-06-01T00:00:49.291Z,2026-06-01T23:59:30.423Z,ProductCatalogCache loaded 8791 entries
+Connection pool nearing limit pool=db connections=<num>/<num>,1173,2026-06-01T00:01:00.561Z,2026-06-01T23:59:27.193Z,Connection pool nearing limit pool=db connections=44/50
+OutOfMemoryError imminent: available heap < <num>%,944,2026-06-01T19:59:00.382Z,2026-06-01T23:44:47.934Z,OutOfMemoryError imminent: available heap < 5%
+Container OOMKilled: memory limit exceeded,819,2026-06-01T19:59:02.158Z,2026-06-01T23:44:26.800Z,Container OOMKilled: memory limit exceeded
+Cache warm-up slower than expected startup_ms=<num>,710,2026-06-01T00:03:13.737Z,2026-06-01T23:58:27.072Z,Cache warm-up slower than expected startup_ms=2885
+Upstream connection refused host=product-service,514,2026-06-01T19:59:02.204Z,2026-06-01T23:43:56.082Z,Upstream connection refused host=product-service
+Application starting up version=<num>.<num>,101,2026-06-01T19:59:09.022Z,2026-06-01T23:43:50.815Z,Application starting up version=2.4.1
+Health check response time elevated endpoint=/health latency=203ms,14,2026-06-01T01:49:19.295Z,2026-06-01T23:09:24.232Z,Health check response time elevated endpoint=/health latency=203ms
+Health check response time elevated endpoint=/health latency=191ms,11,2026-06-01T01:37:03.715Z,2026-06-01T23:38:07.660Z,Health check response time elevated endpoint=/health latency=191ms
+GC overhead limit warning: pause=407ms heap=<num>%,10,2026-06-01T14:04:52.190Z,2026-06-01T23:41:33.932Z,GC overhead limit warning: pause=407ms heap=88%
+GC overhead limit warning: pause=532ms heap=<num>%,10,2026-06-01T14:12:36.414Z,2026-06-01T23:41:04.076Z,GC overhead limit warning: pause=532ms heap=85%
+Health check response time elevated endpoint=/health latency=121ms,9,2026-06-01T00:41:23.683Z,2026-06-01T16:13:20.658Z,Health check response time elevated endpoint=/health latency=121ms
+Health check response time elevated endpoint=/health latency=236ms,9,2026-06-01T01:31:52.973Z,2026-06-01T23:34:38.157Z,Health check response time elevated endpoint=/health latency=236ms
+Health check response time elevated endpoint=/health latency=177ms,9,2026-06-01T02:55:36.351Z,2026-06-01T23:33:08.584Z,Health check response time elevated endpoint=/health latency=177ms
+Health check response time elevated endpoint=/health latency=140ms,9,2026-06-01T03:19:27.339Z,2026-06-01T18:23:38.508Z,Health check response time elevated endpoint=/health latency=140ms

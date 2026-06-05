@@ -1,0 +1,6 @@
+method,metric,baseline_mean,baseline_std,first_anomaly,alarm_5m_3points,points_flagged,false_positive_points_before_15_00,false_positive_points_before_06_30,minutes_before_alert,lead_time_before_alert,max_cusum,smoothing_points,alert_time_score,top_5_scores
+CUSUM (memory_usage_bytes),memory_usage_bytes,417593916.3026345,28161140.96010042,2026-06-01T06:50:30+00:00,2026-06-01T06:51:30+00:00,2289,1209,290.0,972,16h 12m,13592.26453040971,120.0,,
+CUSUM (jvm_gc_pause_ms_avg),jvm_gc_pause_ms_avg,43.66815937940762,6.54272298147981,2026-06-01T06:23:30+00:00,2026-06-01T06:24:30+00:00,2191,1111,284.0,999,16h 39m,4980.193909589574,12.0,,
+EWMA,,,,2026-06-01T00:01:00+00:00,2026-06-01T00:04:30+00:00,64,32,,1379,22h 59m,,,,
+Rolling Z-score,,,,2026-06-01T00:46:00+00:00,2026-06-01T06:02:00+00:00,98,38,,1022,17h 02m,,,,
+Isolation Forest,,,,2026-06-01T00:12:00+00:00,2026-06-01T01:21:30+00:00,1176,128,,1302,21h 42m,,,0.07362941469605411,"[{'timestamp': '2026-06-01T19:23:30+00:00', 'if_score': 0.17664142589634546}, {'timestamp': '2026-06-01T16:40:30+00:00', 'if_score': 0.17592874344200793}, {'timestamp': '2026-06-01T17:00:30+00:00', 'if_score': 0.17592874344200793}, {'timestamp': '2026-06-01T17:21:30+00:00', 'if_score': 0.17592874344200793}, {'timestamp': '2026-06-01T17:22:00+00:00', 'if_score': 0.17592874344200793}]"

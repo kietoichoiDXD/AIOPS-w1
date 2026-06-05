@@ -1,194 +1,115 @@
-# SUBMIT - ShopX Incident Lab
+# SUBMIT - Bài Lab ShopX
 
-## Tóm tắt bài làm
+## Phạm Vi Nộp Bài
 
-Bài lab này phân tích một sự cố trên `cart-service` bằng cách kết hợp metrics và logs để trả lời ba câu hỏi chính:
+Bài nộp này bám đúng yêu cầu trong đề:
 
-- `WHEN`: anomaly bắt đầu khi nào
-- `WHERE`: service, metric, và log nào cho thấy tín hiệu sớm nhất
-- `WHAT`: cơ chế lỗi gốc là gì
+- mã phân tích có thể chạy lại
+- ít nhất hai phương pháp phát hiện bất thường và có so sánh
+- phân tích pattern log
+- file `FINDINGS.md`
+- file `SUBMIT.md`
 
-Mục tiêu của bài không chỉ là tìm một điểm bất thường, mà là dựng được chuỗi bằng chứng theo đúng tư duy AIOps / SRE: từ dấu hiệu sớm, đến lan truyền sự cố, đến hậu quả cuối cùng như `OOMKilled`, restart loop, và timeout dây chuyền.
+Stack kỹ thuật cuối cùng được dùng trong bài:
+
+- `EWMA` làm baseline làm mượt để bắt drift mịn
+- `Rolling Z-score` làm baseline thống kê dễ giải thích
+- `Isolation Forest` làm detector đa biến bổ trợ
+- `CUSUM` là phương pháp chính cho phát hiện drift liên tục
+- `Drain3` được dùng khi có sẵn, và có fallback regex để notebook vẫn chạy được
+
+## Phát Biểu Nhiệm Vụ Của Nhóm
+
+Nhóm phân tích `24 giờ telemetry` gồm `metrics + logs`, kết thúc tại thời điểm incident được suppressed. Báo cáo cần trả lời ba câu hỏi:
+
+- `WHEN` - anomaly bắt đầu từ khi nào, và có silent signal hàng giờ trước alert hay không
+- `WHERE` - service nào, metric nào, và log pattern nào là chỉ báo sớm nhất
+- `WHAT` - giả thuyết root cause là gì, và cơ chế nào gây ra restart loop
+
+## Ảnh Minh Họa
+
+![Biểu đồ memory, GC và incident timeline](./artifacts/chart_03_memory_annotated.png)
+
+![So sánh các phương pháp phát hiện bất thường](./artifacts/chart_04_anomaly_comparison.png)
+
+![Dòng thời gian sự cố](./artifacts/chart_07_incident_timeline.png)
 
 ## Deliverables
 
-- [`scripts/run_pipeline.py`](./scripts/run_pipeline.py)
-- [`FINDINGS.md`](./FINDINGS.md)
-- [`SUBMIT.md`](./SUBMIT.md)
-- [`notebooks/01_metrics_anomaly_detection.ipynb`](./notebooks/01_metrics_anomaly_detection.ipynb)
-- [`notebooks/02_log_parsing_drain3.ipynb`](./notebooks/02_log_parsing_drain3.ipynb)
+- [`FINDINGS.md`](/D:/AWS/AIOPS/w1/lab/FINDINGS.md)
+- [`SUBMIT.md`](/D:/AWS/AIOPS/w1/lab/SUBMIT.md)
+- [`requirements.txt`](/D:/AWS/AIOPS/w1/lab/requirements.txt)
+- [`scripts/run_pipeline.py`](/D:/AWS/AIOPS/w1/lab/scripts/run_pipeline.py)
+- [`notebooks/01_metrics_anomaly_detection.ipynb`](/D:/AWS/AIOPS/w1/lab/notebooks/01_metrics_anomaly_detection.ipynb)
+- [`notebooks/02_log_parsing_drain3.ipynb`](/D:/AWS/AIOPS/w1/lab/notebooks/02_log_parsing_drain3.ipynb)
+- [`w1_aio_02_slide.html`](/D:/AWS/AIOPS/w1/lab/w1_aio_02_slide.html)
+- [`artifacts/g3_recommended_lightweight_architecture.png`](/D:/AWS/AIOPS/w1/lab/artifacts/g3_recommended_lightweight_architecture.png)
 
-## Dữ liệu và phạm vi phân tích
+## Tóm Tắt Phát Hiện Chính
 
-Bộ dữ liệu gồm metrics và logs cho các service chính của hệ thống:
+- Tín hiệu JVM sớm nhất: `06:30:19Z`
+- Tín hiệu root cache sớm nhất: `06:32:33Z`
+- Memory tăng bền vững: `09:01:00Z`
+- Memory vượt `60%` giới hạn: `18:22:00Z`
+- `OOMKilled` đầu tiên: `19:59:02Z`
+- Alert production: `23:04:00Z`
+- Restart loop đạt `7` lần restart lúc `23:43:00Z`
 
-- `cart-service`
-- `api-gateway`
-- `order-service`
-- `payment-service`
-- `product-service`
+Điều này cho thấy có một khoảng suy giảm âm thầm rất dài trước khi alert phản ứng.
 
-Trong bài này, `cart-service` là nguồn phân tích trung tâm vì nó có dấu hiệu suy giảm tài nguyên rõ nhất:
+## Phản Tư Nhóm
 
-- `memory_usage_bytes`
-- `memory_limit_bytes`
-- `jvm_gc_pause_ms_avg`
-- `http_p99_latency_ms`
-- `http_5xx_rate`
-- `container_restart_count`
+Phần khó nhất của bài là xác định đâu mới là thời điểm anomaly thực sự có ý nghĩa theo góc nhìn vận hành. Một số phương pháp có thể cho kết quả rất sớm, nhưng không phải timestamp nào cũng đủ thuyết phục để đưa vào postmortem. Thử thách lớn nhất không chỉ là chạy anomaly detection, mà còn là nối kết quả với hành vi service, log pattern và chuỗi lan truyền lỗi sao cho hợp lý với một SRE hoặc reviewer.
 
-Các service còn lại chủ yếu được dùng để chứng minh tác động lan truyền.
+Điều hữu ích nhất là kết hợp metrics với logs thay vì xem chúng là hai phần rời nhau. Metrics cho thấy memory drift và tác động lên người dùng, trong khi logs chỉ ra cơ chế lỗi từ rất sớm. Đặc biệt, `GC overhead limit warning` và `ProductCatalogCache eviction failed` cho tín hiệu sớm mạnh hơn nhiều so với threshold alert đơn thuần. Nhờ vậy, nhóm điều chỉnh lại cách đọc timeline và cách đánh giá mức độ hữu ích của từng phương pháp phát hiện.
 
-## Khi nào anomaly bắt đầu
+Nếu có thêm thời gian, nhóm sẽ tune `CUSUM` kỹ hơn để giảm false positive và thêm một pipeline online nhẹ để correlation giữa memory drift, GC pressure, và log template cache-eviction. Bài học lớn nhất là alert thường chỉ là đoạn cuối của câu chuyện, còn anomaly thật sự đã bắt đầu từ nhiều giờ trước. Nếu không kết hợp metrics và log-pattern analysis, khoảng lặng đó rất dễ bị bỏ sót.
 
-Từ kết quả notebook và `FINDINGS.md`, có thể chia mốc thời gian như sau:
+## Đóng Góp Cá Nhân
 
-- Tín hiệu log sớm bắt đầu xuất hiện từ khoảng `2026-06-01 06:32:33Z`
-- Memory anomaly bền vững rõ hơn từ khoảng `2026-06-01 16:20:30Z`
-- GC anomaly bền vững từ khoảng `2026-06-01 17:24:30Z`
-- Hard failure xuất hiện vào khoảng `2026-06-01 19:59:00Z`
-- `container_restart_count` tăng mạnh ngay sau đó, cho thấy restart loop đã bắt đầu
+| Thành viên | Vai trò | Đóng góp |
+|---|---|---|
+| Thành viên 1 | Lead analyst | Tổng hợp timeline sự cố và đối chiếu bằng chứng từ metrics và logs. |
+| Thành viên 2 | Phân tích metrics | Xác thực memory, GC, latency, 5xx và restart pattern từ file CSV gốc. |
+| Thành viên 3 | Phân tích log | Trích xuất template và xác nhận tín hiệu JVM/cache sớm từ log JSONL. |
+| Thành viên 4 | Phát hiện bất thường | So sánh EWMA, Rolling Z-score, Isolation Forest và CUSUM cho dạng sự cố này. |
+| Thành viên 5 | Trực quan hóa | Chuẩn hóa và làm sạch các biểu đồ cuối dùng trong report và notebook. |
+| Thành viên 6 | Tài liệu | Viết và chỉnh sửa phần postmortem cuối cùng và narrative nộp bài. |
+| Thành viên 7 | Review và thuyết trình | Kiểm tra tính nhất quán giữa các deliverable và chuẩn bị talking points. |
 
-Ý nghĩa vận hành:
+## Cấu Trúc Repo
 
-- Giai đoạn đầu là silent signal
-- Giai đoạn giữa là degradation
-- Giai đoạn cuối là failure và cascade
+```text
+w1/lab/
+|-- FINDINGS.md
+|-- SUBMIT.md
+|-- requirements.txt
+|-- notebooks/
+|   |-- 01_metrics_anomaly_detection.ipynb
+|   `-- 02_log_parsing_drain3.ipynb
+|-- scripts/
+|   `-- run_pipeline.py
+|-- artifacts/
+|   |-- anomaly_method_comparison.csv
+|   |-- ewma_results.csv
+|   |-- rolling_zscore_results.csv
+|   |-- chart_01_correlation_normalized.png
+|   |-- chart_02_log_error_rate.png
+|   |-- chart_03_memory_annotated.png
+|   |-- chart_04_anomaly_comparison.png
+|   |-- chart_05_multiservice_5xx.png
+|   |-- chart_06_gc_scatter.png
+|   |-- chart_07_incident_timeline.png
+|   |-- chart_08_request_vs_latency.png
+|   `-- log_templates_top12.png
+`-- w1_aio_02_slide.html
+```
 
-## Service, metric, và log nào nổi bật nhất
-
-### Service chính
-
-- `cart-service` là nguồn gốc chính của sự cố
-- `api-gateway`, `order-service`, và `payment-service` cho thấy sự cố lan truyền ra ngoài
-- `product-service` được giữ làm đối chứng
-
-### Metric quan trọng nhất
-
-- `memory_usage_bytes`
-- `jvm_gc_pause_ms_avg`
-- `http_p99_latency_ms`
-- `http_5xx_rate`
-- `container_restart_count`
-
-### Log signal quan trọng nhất
-
-- `ProductCatalogCache eviction failed: heap pressure too high`
-- `GC overhead limit warning: pause=... heap=...%`
-- `OutOfMemoryError imminent: available heap < ...%`
-- `Container OOMKilled: memory limit exceeded`
-- `Application starting up ...`
-
-## Trace_id analysis
-
-Notebook logs đã được mở rộng để phân tích `trace_id` theo hướng đúng với dữ liệu thực tế:
-
-- `trace_id` được dùng để xem các event liên quan bên trong từng service
-- `trace_id` giúp xác định các chuỗi event dày đặc, đặc biệt trong `cart-service`
-- Dữ liệu hiện tại không có `trace_id` chung xuyên suốt giữa `cart-service` và `order-service`, nên không ép một correlation giả giữa các service
-
-Kết luận thực tế:
-
-- `trace_id` hữu ích cho nội bộ service log
-- Cross-service correlation nên chứng minh bằng metrics upstream và incident timeline, không nên bịa trace chung khi dữ liệu không hỗ trợ
-
-## Error rate theo 30 phút
-
-Notebook logs có thêm phân tích `WARN + ERROR + FATAL` theo cửa sổ 30 phút:
-
-- Bài này dùng cửa sổ 30 phút để làm mượt noise và nhìn rõ xu hướng
-- Cách này phù hợp với incident kiểu drift rồi mới bùng nổ
-- Khi error rate tăng cùng lúc với memory/GC anomaly, đó là dấu hiệu rất mạnh của degradation
-
-Biểu đồ này giúp trả lời:
-
-- service nào bắt đầu xấu đi trước
-- error spike xuất hiện trước alert bao lâu
-- có phải chỉ là một spike ngẫu nhiên hay là một xu hướng bền vững
-
-## Incident timeline
-
-Mình đã thêm chart timeline để gom bằng chứng thành một dòng thời gian duy nhất:
-
-- tín hiệu cache eviction failure
-- window error rate
-- dấu hiệu OOM imminent
-- `OOMKilled`
-- restart loop
-- downstream timeout/refused
-
-Đây là biểu đồ quan trọng nhất để trình bày cho reviewer vì nó nối `WHEN / WHERE / WHAT` thành một câu chuyện duy nhất thay vì chỉ là các chart rời rạc.
-
-## Bảng mapping WHEN / WHERE / WHAT
-
-| File | WHEN | WHERE | WHAT |
-|---|---|---|---|
-| `metrics/cart-service.csv` | Rất quan trọng | Rất quan trọng | Rất quan trọng |
-| `logs/cart-service.log.jsonl` | Quan trọng | Rất quan trọng | Rất quan trọng |
-| `metrics/api-gateway.csv` | Quan trọng | Hỗ trợ | Hỗ trợ |
-| `metrics/order-service.csv` | Quan trọng | Hỗ trợ | Hỗ trợ |
-| `metrics/payment-service.csv` | Quan trọng | Hỗ trợ | Hỗ trợ |
-| `logs/order-service.log.jsonl` | Hỗ trợ | Quan trọng | Hỗ trợ |
-| `metrics/product-service.csv` | Đối chứng | Đối chứng | Đối chứng |
-
-## Tóm tắt root cause
-
-Hypothesis chính của bài:
-
-1. `cart-service` bị heap pressure tăng dần
-2. JVM GC bắt đầu hoạt động nặng hơn
-3. Latency tăng và error rate tăng
-4. Pod tiến tới `OOMKilled`
-5. Container restart liên tục
-6. Downstream services bắt đầu timeout hoặc bị ảnh hưởng dây chuyền
-
-Tóm lại, root cause hợp lý nhất là một vấn đề về memory pressure / GC thrashing trong `cart-service`, dẫn đến failure ở tầng container và cascade sang các service liên quan.
-
-## So sánh 2 phương pháp anomaly detection
-
-Bài này dùng 2 phương pháp:
-
-- `Rolling Z-score`
-- `Isolation Forest`
-
-Nhận xét:
-
-- `Rolling Z-score` dễ giải thích hơn cho on-call và phù hợp để đánh dấu silent window
-- `Isolation Forest` nhạy với bất thường đa biến, nhưng có thể flag rất sớm và cần diễn giải cẩn thận
-
-Trong bài này:
-
-- Z-score phù hợp hơn cho việc kể câu chuyện vận hành
-- Isolation Forest phù hợp hơn như một lớp kiểm tra bổ sung cho anomaly đa biến
-
-## Reflection
-
-Nếu được giao làm Platform Engineer cho một startup khoảng 50 service vừa raise Series A, mình sẽ ưu tiên cách làm sau:
-
-- Dùng observability đủ ba lớp: metrics, logs, traces
-- Tập trung vào các signal thực sự giúp debug nhanh: memory, GC, latency, 5xx, restart count
-- Dùng pipeline log template thay vì đọc raw log thủ công
-- Dùng trace_id để điều tra trong phạm vi dữ liệu cho phép
-- Không cố ép cross-service trace correlation nếu data không có shared trace_id
-
-Về chiến lược build hay buy:
-
-- Nếu team còn nhỏ và cần tốc độ: nên `buy` một phần nền tảng quan sát như Datadog hoặc dịch vụ tương đương
-- Nếu cần kiểm soát chi phí và có năng lực vận hành cao hơn: có thể `build` dần các phần chuyên sâu như dashboard nội bộ, pipeline enrichment, hoặc anomaly rules
-
-Khuyến nghị của mình cho startup 50-service:
-
-- `Buy` phần core observability trước để giảm time-to-detect và time-to-resolve
-- `Build` dần những phần domain-specific AIOps nơi dữ liệu nội bộ tạo giá trị thật sự
-
-## Cách chạy
+## Lệnh Chạy
 
 ```bash
 python scripts/run_pipeline.py
 ```
 
-## Ghi chú
+Hai notebook cũng có thể chạy tuần tự từ đầu đến cuối.
 
-- File này được viết bằng tiếng Việt và lưu theo UTF-8
-- Các timestamp trong bài dùng múi giờ UTC
-- Các chart trong notebook được lưu vào thư mục `artifacts/`
