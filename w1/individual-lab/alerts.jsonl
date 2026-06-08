@@ -1,0 +1,93 @@
+{"timestamp": "2026-06-05T09:38:42.914+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_leak detected: Memory utilization at 47.2%, GC=43.6ms, latency=46.1ms, 5xx=0.22%"}
+{"timestamp": "2026-06-05T09:41:42.914+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_leak detected: Memory utilization at 95.3%, GC=215.5ms, latency=951.0ms, 5xx=47.38%"}
+{"timestamp": "2026-06-05T09:38:37.791+00:00", "type": "traffic_spike", "severity": "critical", "message": "traffic_spike detected: RPS=403.8, queue_depth=129, latency=737.0ms, cpu=55.8%, 5xx=22.55%"}
+{"timestamp": "2026-06-05T09:41:37.791+00:00", "type": "traffic_spike", "severity": "critical", "message": "traffic_spike detected: RPS=588.0, queue_depth=191, latency=1308.3ms, cpu=75.8%, 5xx=42.93%"}
+{"timestamp": "2026-06-05T09:38:35.734+00:00", "type": "dependency_timeout", "severity": "critical", "message": "dependency_timeout detected: upstream_timeout_rate=3.21%, 5xx=8.33%, latency=-27.7ms"}
+{"timestamp": "2026-06-05T09:43:02.116+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=41.3%, gc=20.9ms, latency=49.7ms"}
+{"timestamp": "2026-06-05T09:44:11.116+00:00", "type": "traffic_spike", "severity": "warning", "message": "rps=79.2, queue=6, latency=58.8ms"}
+{"timestamp": "2026-06-05T09:44:20.116+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=39.5%, gc=13.0ms, latency=57.4ms"}
+{"timestamp": "2026-06-05T09:45:17.116+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=0.19%, latency=866.2ms, 5xx=40.10%"}
+{"timestamp": "2026-06-05T09:45:23.116+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=95.6%, gc=203.0ms, latency=943.3ms"}
+{"timestamp": "2026-06-05T09:45:29.116+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=62.5, queue=4, latency=952.8ms"}
+{"timestamp": "2026-06-05T09:48:35.116+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=0.01%, latency=959.2ms, 5xx=44.36%"}
+{"timestamp": "2026-06-05T09:43:45.374+00:00", "type": "dependency_timeout", "severity": "warning", "message": "timeout=0.09%, latency=50.6ms, 5xx=0.42%"}
+{"timestamp": "2026-06-05T09:43:48.374+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=40.4%, gc=12.6ms, latency=56.3ms"}
+{"timestamp": "2026-06-05T09:43:54.374+00:00", "type": "traffic_spike", "severity": "warning", "message": "rps=77.6, queue=5, latency=56.8ms"}
+{"timestamp": "2026-06-05T09:44:45.374+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=0.18%, latency=1243.2ms, 5xx=34.86%"}
+{"timestamp": "2026-06-05T09:44:48.374+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=39.6%, gc=10.1ms, latency=1196.3ms"}
+{"timestamp": "2026-06-05T09:45:42.374+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=613.6, queue=213, latency=1374.1ms"}
+{"timestamp": "2026-06-05T09:45:48.374+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=39.5%, gc=13.6ms, latency=1179.3ms"}
+{"timestamp": "2026-06-05T09:47:36.374+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=664.8, queue=211, latency=1363.1ms"}
+{"timestamp": "2026-06-05T09:48:09.374+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=0.16%, latency=1320.7ms, 5xx=39.37%"}
+{"timestamp": "2026-06-05T09:44:38.435+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=62.21%, latency=2056.6ms, 5xx=29.21%"}
+{"timestamp": "2026-06-05T09:44:50.435+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=39.8%, gc=15.3ms, latency=2619.2ms"}
+{"timestamp": "2026-06-05T09:45:41.435+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=70.45%, latency=2573.3ms, 5xx=38.14%"}
+{"timestamp": "2026-06-05T09:45:50.435+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=40.1%, gc=13.2ms, latency=2646.9ms"}
+{"timestamp": "2026-06-05T09:46:47.435+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=80.00%, latency=2634.5ms, 5xx=32.69%"}
+{"timestamp": "2026-06-05T09:47:08.435+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=38.9%, gc=12.4ms, latency=2304.3ms"}
+{"timestamp": "2026-06-05T09:47:47.435+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=75.42%, latency=2723.8ms, 5xx=41.08%"}
+{"timestamp": "2026-06-05T09:48:23.435+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=40.3%, gc=13.2ms, latency=2504.4ms"}
+{"timestamp": "2026-06-05T09:48:47.435+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=75.67%, latency=2444.7ms, 5xx=37.15%"}
+{"timestamp": "2026-06-05T09:45:22.470+00:00", "type": "traffic_spike", "severity": "warning", "message": "rps=75.0, queue=8, latency=52.1ms"}
+{"timestamp": "2026-06-05T09:45:37.470+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=47.0%, gc=27.8ms, latency=64.2ms"}
+{"timestamp": "2026-06-05T09:46:22.470+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=0.19%, latency=866.2ms, 5xx=40.10%"}
+{"timestamp": "2026-06-05T09:45:42.594+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=506.4, queue=195, latency=1226.2ms"}
+{"timestamp": "2026-06-05T09:46:48.594+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=613.6, queue=213, latency=1374.1ms"}
+{"timestamp": "2026-06-05T09:48:42.594+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=664.8, queue=211, latency=1363.1ms"}
+{"timestamp": "2026-06-05T09:45:44.541+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=169.6, queue=62, latency=2056.6ms"}
+{"timestamp": "2026-06-05T09:46:05.541+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=71.58%, latency=2493.3ms, 5xx=41.64%"}
+{"timestamp": "2026-06-05T09:47:05.541+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=61.10%, latency=2517.1ms, 5xx=36.63%"}
+{"timestamp": "2026-06-05T09:48:11.541+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=78.91%, latency=2623.7ms, 5xx=36.42%"}
+{"timestamp": "2026-06-05T09:49:14.541+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=80.00%, latency=2549.4ms, 5xx=35.90%"}
+{"timestamp": "2026-06-05T09:46:30.257+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=47.0%, gc=27.8ms, latency=64.2ms"}
+{"timestamp": "2026-06-05T09:47:30.257+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=94.9%, gc=204.1ms, latency=954.0ms"}
+{"timestamp": "2026-06-05T09:48:30.257+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=95.0%, gc=212.2ms, latency=953.7ms"}
+{"timestamp": "2026-06-05T09:49:30.257+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=96.0%, gc=210.4ms, latency=952.7ms"}
+{"timestamp": "2026-06-05T09:50:30.257+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=93.1%, gc=203.4ms, latency=954.9ms"}
+{"timestamp": "2026-06-05T09:46:32.479+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=622.4, queue=211, latency=1219.8ms"}
+{"timestamp": "2026-06-05T09:47:32.479+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=574.4, queue=237, latency=1243.0ms"}
+{"timestamp": "2026-06-05T09:48:11.479+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=40.6%, gc=15.3ms, latency=1180.0ms"}
+{"timestamp": "2026-06-05T09:48:32.479+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=578.4, queue=220, latency=1216.8ms"}
+{"timestamp": "2026-06-05T09:49:32.479+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=614.4, queue=176, latency=1222.8ms"}
+{"timestamp": "2026-06-05T09:50:32.479+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=682.4, queue=190, latency=1247.4ms"}
+{"timestamp": "2026-06-05T09:46:37.315+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=169.6, queue=62, latency=2056.6ms"}
+{"timestamp": "2026-06-05T09:47:10.315+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=73.05%, latency=2619.9ms, 5xx=39.24%"}
+{"timestamp": "2026-06-05T09:47:49.315+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=222.8, queue=77, latency=2646.9ms"}
+{"timestamp": "2026-06-05T09:48:10.315+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=69.69%, latency=2577.8ms, 5xx=41.50%"}
+{"timestamp": "2026-06-05T09:49:07.315+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=196.8, queue=74, latency=2304.3ms"}
+{"timestamp": "2026-06-05T09:49:19.315+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=80.00%, latency=2549.3ms, 5xx=34.18%"}
+{"timestamp": "2026-06-05T09:50:19.315+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=211.2, queue=75, latency=2528.7ms"}
+{"timestamp": "2026-06-05T09:50:22.315+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=77.96%, latency=2504.4ms, 5xx=36.71%"}
+{"timestamp": "2026-06-05T09:47:20.083+00:00", "type": "memory_leak", "severity": "warning", "message": "memory_utilization=47.0%, gc=27.8ms, latency=64.2ms"}
+{"timestamp": "2026-06-05T09:48:20.083+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=94.9%, gc=204.1ms, latency=954.0ms"}
+{"timestamp": "2026-06-05T09:49:20.083+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=95.0%, gc=212.2ms, latency=953.7ms"}
+{"timestamp": "2026-06-05T09:50:20.083+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=96.0%, gc=210.4ms, latency=952.7ms"}
+{"timestamp": "2026-06-05T09:51:20.083+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=93.1%, gc=203.4ms, latency=954.9ms"}
+{"timestamp": "2026-06-05T09:47:21.953+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=622.4, queue=211, latency=1219.8ms"}
+{"timestamp": "2026-06-05T09:48:21.953+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=574.4, queue=237, latency=1243.0ms"}
+{"timestamp": "2026-06-05T09:49:00.953+00:00", "type": "memory_leak", "severity": "critical", "message": "memory_utilization=40.6%, gc=15.3ms, latency=1180.0ms"}
+{"timestamp": "2026-06-05T09:49:21.953+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=578.4, queue=220, latency=1216.8ms"}
+{"timestamp": "2026-06-05T09:50:21.953+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=614.4, queue=176, latency=1222.8ms"}
+{"timestamp": "2026-06-05T09:51:21.953+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=682.4, queue=190, latency=1247.4ms"}
+{"timestamp": "2026-06-05T09:47:26.075+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=169.6, queue=62, latency=2056.6ms"}
+{"timestamp": "2026-06-05T09:47:47.075+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=71.58%, latency=2493.3ms, 5xx=41.64%"}
+{"timestamp": "2026-06-05T09:48:44.075+00:00", "type": "traffic_spike", "severity": "critical", "message": "rps=211.8, queue=84, latency=2653.2ms"}
+{"timestamp": "2026-06-05T09:48:47.075+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=61.10%, latency=2517.1ms, 5xx=36.63%"}
+{"timestamp": "2026-06-05T09:49:47.075+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=72.54%, latency=2696.7ms, 5xx=34.69%"}
+{"timestamp": "2026-06-05T09:50:47.075+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=80.00%, latency=2344.3ms, 5xx=34.03%"}
+{"timestamp": "2026-06-05T09:51:47.075+00:00", "type": "dependency_timeout", "severity": "critical", "message": "timeout=72.68%, latency=2492.3ms, 5xx=35.61%"}
+{"timestamp": "2026-06-05T09:52:34.720+00:00", "type": "memory_leak", "severity": "warning", "message": "Memory usage growing abnormally"}
+{"timestamp": "2026-06-05T09:53:34.720+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory usage growing abnormally"}
+{"timestamp": "2026-06-05T09:54:34.720+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory usage growing abnormally"}
+{"timestamp": "2026-06-05T09:55:34.720+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory usage growing abnormally"}
+{"timestamp": "2026-06-05T09:56:34.720+00:00", "type": "memory_leak", "severity": "critical", "message": "Memory usage growing abnormally"}
+{"timestamp": "2026-06-05T09:52:35.847+00:00", "type": "traffic_spike", "severity": "critical", "message": "Traffic spike detected from RPS, queue depth and latency growth"}
+{"timestamp": "2026-06-05T09:53:35.847+00:00", "type": "traffic_spike", "severity": "critical", "message": "Traffic spike detected from RPS, queue depth and latency growth"}
+{"timestamp": "2026-06-05T09:54:35.847+00:00", "type": "traffic_spike", "severity": "critical", "message": "Traffic spike detected from RPS, queue depth and latency growth"}
+{"timestamp": "2026-06-05T09:55:35.847+00:00", "type": "traffic_spike", "severity": "critical", "message": "Traffic spike detected from RPS, queue depth and latency growth"}
+{"timestamp": "2026-06-05T09:56:35.847+00:00", "type": "traffic_spike", "severity": "critical", "message": "Traffic spike detected from RPS, queue depth and latency growth"}
+{"timestamp": "2026-06-05T09:52:40.033+00:00", "type": "dependency_timeout", "severity": "critical", "message": "Dependency timeout detected from timeout rate and log evidence"}
+{"timestamp": "2026-06-05T09:53:40.033+00:00", "type": "dependency_timeout", "severity": "critical", "message": "Dependency timeout detected from timeout rate and log evidence"}
+{"timestamp": "2026-06-05T09:54:40.033+00:00", "type": "dependency_timeout", "severity": "critical", "message": "Dependency timeout detected from timeout rate and log evidence"}
+{"timestamp": "2026-06-05T09:55:40.033+00:00", "type": "dependency_timeout", "severity": "critical", "message": "Dependency timeout detected from timeout rate and log evidence"}
+{"timestamp": "2026-06-05T09:56:40.033+00:00", "type": "dependency_timeout", "severity": "critical", "message": "Dependency timeout detected from timeout rate and log evidence"}
