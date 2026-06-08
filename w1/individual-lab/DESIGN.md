@@ -1,86 +1,33 @@
-# DESIGN - Streaming Anomaly Pipeline
+# Detection Approach — DESIGN.md
 
-## 1. Kiến trúc
+## Approach tôi dùng
+Hệ thống sử dụng tiếp cận nhiều lớp (Multi-layered approach):
+- **Rolling Z-score**: Để đo độ lệch của metrics so với baseline động.
+- **Rule-based trend detection**: Để kiểm tra xu hướng tăng liên tục và các điều kiện ngữ cảnh của từng loại lỗi.
+- **M-out-of-N filtering**: Bộ lọc nhiễu thời gian thực trước khi bắn cảnh báo.
+- **Alert suppression**: Cơ chế chống alert storm (suppress trong 60 giây).
 
-Hệ thống gồm 3 phần:
+## Tại sao chọn approach này
+- **Thích hợp cho streaming data**: Phù hợp chạy online theo từng điểm dữ liệu, hiệu năng cao và độ trễ thấp.
+- **Dễ giải thích & trực quan**: Không cần huấn luyện mô hình học máy phức tạp, dễ dàng kiểm chứng bằng luật logic (rules) trên các thuộc tính vận hành (SRE metrics).
+- **Độ tin cậy cao**: Sự kết hợp giữa Z-score (độ lệch thống kê) và các luật ngữ cảnh cụ thể cho từng loại sự cố (`memory_leak`, `traffic_spike`, `dependency_timeout`) giúp phân loại chính xác lỗi.
 
-1. `stream_generator.py` gửi telemetry liên tục qua HTTP `POST /ingest`.
-2. `pipeline.py` nhận payload, cập nhật rolling window và tính điểm bất thường.
-3. `alerts.jsonl` lưu alert khi pipeline xác nhận có anomaly.
+## Cách hoạt động
+1. **Thu thập và Tiền xử lý (FastAPI Endpoint `/ingest`)**: Nhận telemetry payload chứa metrics và logs từ generator, tính toán các metrics phái sinh (ví dụ: `memory_utilization`).
+2. **Cập nhật Rolling Stats**: Đẩy metrics mới vào hàng đợi rolling window để cập nhật giá trị trung bình (`mean`) và độ lệch chuẩn (`std`).
+3. **Phát hiện Anomaly theo Fault Type**:
+   - Sử dụng các luật kiểm tra kết hợp ngưỡng cứng, Rolling Z-score, và hướng xu hướng (`trend_up`) cho từng fault type cụ thể để tính điểm bất thường.
+4. **Chọn Fault Type tối ưu**: Phân loại và chấm điểm cho cả 3 ứng viên, chọn loại fault có điểm cao nhất.
+5. **M-out-of-N Filtering**: Đưa cờ hiệu bất thường của fault type chiến thắng qua bộ lọc M-out-of-N (nếu có ít nhất M điểm bất thường trong N quan sát gần nhất thì xác nhận sự cố thực sự).
+6. **Suppression & Alerting**: Kiểm tra khoảng cách thời gian từ lần alert trước đó. Nếu không bị suppression, ghi alert dưới dạng một dòng JSON vào file `alerts.jsonl`.
 
-Ngoài ra, `pipeline.log` ghi lại số request, anomaly và alert để thuận tiện khi demo.
+## Parameters tôi chọn
+- **`WINDOW_SIZE = 50`**: Độ dài rolling window vừa đủ để phản ánh baseline ngắn hạn đáng tin cậy (~25 phút sản xuất với tốc độ lấy mẫu chuẩn) mà không tiêu tốn quá nhiều bộ nhớ.
+- **`WARMUP_POINTS = 20`**: Số điểm tối thiểu để khởi tạo baseline thống kê ổn định trước khi bắt đầu kiểm tra bất thường.
+- **`M_OUT_OF_N = 3` / `M_OUT_OF_N_WINDOW = 5`**: Lọc nhiễu ngắn hạn hiệu quả (tránh false positive do 1-2 điểm nhiễu đơn lẻ) trong khi vẫn đảm bảo thời gian phát hiện lỗi (Time-To-Detect) đủ nhanh (chỉ cần tối đa 3-5 ticks).
+- **`ALERT_SUPPRESSION_SECONDS = 60`**: Ngăn ngừa bão cảnh báo (alert storm) giúp nhân viên on-call không bị quá tải.
 
-## 2. Cách phát hiện bất thường
-
-Pipeline dùng cách tiếp cận nhiều lớp:
-
-- `Rolling Z-score` để đo độ lệch so với baseline.
-- `Rule-based trend detection` để kiểm tra xu hướng tăng liên tục.
-- `M-out-of-N filtering` để tránh báo động chỉ vì một vài điểm nhiễu.
-- `Alert suppression` 60 giây để chống alert storm.
-
-Đầu ra được phân loại theo ba fault type:
-
-- `memory_leak`
-- `traffic_spike`
-- `dependency_timeout`
-
-## 3. Vì sao dùng Rolling Z-score
-
-Rolling Z-score phù hợp cho bài streaming vì:
-
-- dễ giải thích trong buổi demo
-- không cần train mô hình phức tạp
-- chạy online theo từng điểm dữ liệu
-- phát hiện được độ lệch bất thường của memory, latency, timeout, queue depth
-
-Trong bài này, Z-score không đứng một mình mà đi kèm xu hướng tăng và điều kiện theo ngữ cảnh.
-
-## 4. Vì sao dùng M-out-of-N
-
-Streaming telemetry thường có nhiễu ngắn hạn. Nếu bắn alert ngay ở một điểm, hệ thống rất dễ false positive.
-
-M-out-of-N giúp lọc nhiễu bằng cách chỉ fire alert khi có ít nhất `3` anomaly trong `5` quan sát gần nhất.
-
-Lợi ích:
-
-- giảm alert giả
-- tránh alert storm
-- vẫn giữ được khả năng phát hiện sớm
-
-## 5. Chiến lược phân loại fault
-
-Pipeline không dùng một detector chung cho mọi fault. Thay vào đó, mỗi fault type có tiêu chí riêng:
-
-- `memory_leak`
-  - memory utilization tăng
-  - GC pause tăng
-  - latency tăng
-
-- `traffic_spike`
-  - request rate tăng
-  - queue depth tăng
-  - latency tăng
-
-- `dependency_timeout`
-  - timeout rate tăng
-  - latency tăng
-  - 5xx tăng
-  - log có `timeout` hoặc `circuit breaker`
-
-Sau đó pipeline chọn fault type có điểm cao nhất.
-
-## 6. Giới hạn
-
-- Rolling Z-score cần baseline ban đầu đủ ổn định.
-- Nếu fault thay đổi quá đột ngột, window ngắn có thể bỏ sót một số tín hiệu.
-- Rule-based logic dễ giải thích nhưng không linh hoạt bằng model học máy.
-- M-out-of-N có thể làm chậm phát hiện một chút để đổi lấy độ tin cậy cao hơn.
-
-## 7. Cải tiến tương lai
-
-- Thêm EWMA cho drift mịn.
-- Tách ngưỡng riêng cho từng fault type.
-- Lưu thêm correlation id hoặc trace id vào alert.
-- Tạo dashboard nhỏ hiển thị trend trước khi alert.
-- Thêm unit test cho từng detector và từng loại fault.
+## Cải thiện nếu có thêm thời gian
+- Áp dụng **EWMA (Exponentially Weighted Moving Average)** thay thế hoặc bổ trợ cho Rolling Z-score để bắt các tín hiệu drift mịn màng hơn.
+- Thiết lập các ngưỡng Z-score động và cấu hình riêng cho từng metric thay vì sử dụng ngưỡng chung.
+- Tích hợp thêm các kỹ thuật phân tích log nâng cao (như Parsing Drain3) để ánh xạ log template động vào điểm bằng chứng thay vì kiểm tra từ khóa tĩnh (`timeout`, `overloaded`).
