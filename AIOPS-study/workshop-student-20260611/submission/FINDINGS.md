@@ -1,5 +1,7 @@
 # FINDINGS
 
+Tài liệu này tổng hợp các kết quả, thuật toán và bằng chứng kỹ thuật của workshop bằng tiếng Việt.
+
 ## 1. Tóm tắt kết quả
 
 Workshop này thể hiện khá rõ một pipeline AIOps thực tế gồm 4 tầng:
