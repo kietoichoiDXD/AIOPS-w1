@@ -189,3 +189,80 @@ Each `audit.jsonl` entry includes a structured `evidence` block containing:
 - `decision`: the decision path taken (e.g., `escalate_tls`, `auto_act`, `escalate_ood`), p_success, utility score, blast gate status
 
 **What was omitted:** raw log lines (too verbose, 500 per incident), full metric time series (adds no audit value), topology edge list. A reviewer can reconstruct the decision from vote weights alone without needing to re-read 500 log lines.
+
+
+## Optional C — Confidence Calibration
+
+### Setup
+
+`calibration.py` reads `audit.jsonl` (8 entries) and `eval/expected.json`, computes hit (1 = selected action ∈ accepted_actions, 0 = not), then measures ECE and fits Platt scaling.
+
+### Raw results
+
+| Incident | Predicted confidence | Hit |
+|----------|---------------------|-----|
+| E01 | 0.5911 | 1 |
+| E02 | 0.4151 | 1 |
+| E03 | 0.4612 | 1 |
+| E04 | 0.2614 | 1 |
+| E05 | 0.6334 | 1 |
+| E06 | 0.2976 | 1 |
+| E07 | 0.4587 | 1 |
+| E08 | 0.1800 | 1 |
+
+All 8 hits = 1.0 actual accuracy.
+
+### Reliability diagram (before calibration)
+
+| Bin | n | Mean predicted | Actual hit rate | Gap |
+|-----|---|---------------|-----------------|-----|
+| [0.00, 0.25) | 1 | 0.180 | 1.000 | +0.820 (under-confident) |
+| [0.25, 0.50) | 5 | 0.379 | 1.000 | +0.621 (under-confident) |
+| [0.50, 0.75) | 2 | 0.612 | 1.000 | +0.388 (under-confident) |
+
+**ECE before calibration: 0.5877** — very high, engine is systematically under-confident across all bins.
+
+### Where the engine is over- or under-confident
+
+The engine is **strictly under-confident** in all three populated bins. The worst case is E08 (confidence=0.18, actual=correct): the OOD escalation path hard-codes confidence=0.18 regardless of what the evidence says, because the design intent is "low similarity → low confidence → human reviews." In reality the escalation was correct, so 0.18 was far too low.
+
+The root cause of under-confidence is the confidence formula:
+```python
+confidence = 0.45 + 0.4 * best_similarity + 0.1 * p_success + 0.05 * gap
+```
+`best_similarity` rarely exceeds 0.35 on this corpus, so the formula is anchored low by design. The OOD and keyword-gate paths use even lower hard-coded floors (0.18, 0.25).
+
+### Platt scaling calibration
+
+Fitted sigmoid: `P(correct) = 1 / (1 + exp(-(A×s + B)))`
+
+```
+A = 3.1539,  B = 5.8278
+```
+
+| Incident | Raw | Calibrated |
+|----------|-----|-----------|
+| E01 | 0.5911 | 0.9995 |
+| E02 | 0.4151 | 0.9992 |
+| E03 | 0.4612 | 0.9993 |
+| E04 | 0.2614 | 0.9987 |
+| E05 | 0.6334 | 0.9996 |
+| E06 | 0.2976 | 0.9988 |
+| E07 | 0.4587 | 0.9993 |
+| E08 | 0.1800 | 0.9983 |
+
+**ECE after calibration: 0.0009** — near-perfect.
+
+### Why calibrated output is ~0.999 for all incidents
+
+With 8/8 correct, the optimal Platt sigmoid pushes all scores toward 1.0. The large B=5.8278 intercept reflects the fact that even the lowest raw score (0.18) corresponds to a correct prediction — so the sigmoid shifts the entire distribution into the high-confidence region. This is mathematically correct given the evidence but should not be interpreted as "the engine is always 99.9% right." The eval set is small (8 incidents) and all happened to be correct.
+
+### Honest assessment of the mitigation
+
+Platt scaling on 8 samples is **overfit by construction**. The calibrated scores are not trustworthy as out-of-sample probabilities. The correct mitigation for production would be:
+
+1. Run the engine on a held-out set of ≥50 labeled incidents.
+2. Fit Platt on 80% of those, validate ECE on the remaining 20%.
+3. Only deploy the calibrated confidence if out-of-sample ECE < 0.15.
+
+Within this lab's time budget, the calibration demonstrates the *methodology* correctly — the ECE drop from 0.5877 → 0.0009 shows the engine's raw heuristic confidence is a poor probability estimate, and sigmoid recalibration is the right tool to fix it.
