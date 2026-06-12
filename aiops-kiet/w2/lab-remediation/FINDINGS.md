@@ -70,7 +70,7 @@ Nếu không có outcome weighting, `increase_pool_size` và `rollback_service` 
 
 **Incident:** E01 - `checkout-svc` latency-p99-high, root cause: connection pool exhaustion trên `payment-svc`.
 
-### Top-5 láng giềng
+### Top-5 
 
 | Hạng | History ID | sim | outcome_w | rank_w |
 |------|-----------|-----|-----------|--------|
