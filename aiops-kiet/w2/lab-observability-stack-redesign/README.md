@@ -12,6 +12,12 @@ Các file chính:
 
 Mở `architecture.mmd` bằng GitHub hoặc Mermaid Live Editor để render sơ đồ.
 
+## Ảnh SVG
+
+Mình đã thêm sẵn ảnh sơ đồ dạng SVG để tiện push lên GitHub:
+
+- `observability-architecture.svg`
+
 ## Cách xuất ảnh đẹp bằng Graphviz
 
 Nếu đã cài Graphviz, dùng các lệnh sau:

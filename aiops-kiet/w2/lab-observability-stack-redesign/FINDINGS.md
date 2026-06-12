@@ -95,3 +95,39 @@ Tức là giảm khoảng:
 - tăng tỷ lệ log sang cold storage
 - giữ tail sampling chặt hơn cho traces non-critical
 - giữ metrics ở mức cardinatility thấp và ổn định
+
+## 6. Cách xử lý khi scale lớn hoặc phải duy trì lâu dài
+
+Nếu GeekShop đi từ cỡ `1,000 users` lên `1,000,000 users`, bài toán observability không còn là “chọn tool nào” mà là “kiểm soát tín hiệu nào được phép đi vào tool”.
+
+### 6.1 Ở mức khoảng 1,000 users
+
+- OTel Collector vẫn đủ nhẹ nếu policy sampling hợp lý.
+- Cardinality chưa vỡ ngay nhưng đã cần label allowlist.
+- Logs có thể giữ hot retention tương đối rộng hơn.
+- Alert noise bắt đầu xuất hiện nếu routing chưa chuẩn hóa.
+
+### 6.2 Ở mức khoảng 1,000,000 users
+
+- Logs là điểm vỡ budget đầu tiên nếu retention và label không bị siết.
+- Metrics sẽ vỡ nếu custom labels sinh series explosion.
+- Traces phải chuyển sang policy-based tail sampling.
+- Alerting phải có dedup, inhibition, và ownership theo service/team.
+
+### 6.3 Nếu phải duy trì lâu dài
+
+Tôi sẽ thêm các lớp kỹ thuật sau:
+
+- `Default deny` cho label telemetry
+- `Sampling by importance` thay vì lấy mẫu đồng đều
+- `Hot/Warm/Cold storage tiers`
+- `Quota per namespace/team`
+- `Cost dashboard` như một SLO vận hành
+- `Retention review` định kỳ để ngăn chi phí creep
+
+### 6.4 Kinh nghiệm kỹ thuật rút ra
+
+- Đừng để backend sửa cardinality muộn, phải chặn ở edge.
+- Đừng cắt PagerDuty trước, vì alert routing là capability khó thay nhất.
+- Đừng giữ trace 100% cho traffic lớn, tail sampling là điểm cân bằng tốt hơn.
+- Đừng để logs nằm mãi trên hot path, cold archive là bắt buộc khi tăng trưởng thật.
