@@ -21,6 +21,16 @@ dot -Tpng architecture.dot -o architecture.png
 dot -Tsvg architecture.dot -o architecture.svg
 ```
 
+## Vẽ bằng pydiagrams
+
+Script `pydiagrams_observability.py` dùng DSL của `pydiagrams` để sinh sơ đồ cùng cấu trúc theo kiểu Python. Chạy:
+
+```bash
+python pydiagrams_observability.py
+```
+
+Sau đó nếu muốn ảnh PNG/SVG, dùng file DOT/Graphviz tương ứng hoặc xuất tiếp từ backend bạn chọn.
+
 ## Gợi ý vẽ đẹp hơn
 
 Nếu muốn xuất ảnh:
