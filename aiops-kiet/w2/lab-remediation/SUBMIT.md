@@ -128,7 +128,7 @@ Các rule an toàn chính:
 
 ## 4. Cách ghi thuật toán ra trong bài nộp
 
-Để bài nộp rõ ràng và dễ chấm, tôi trình bày mỗi thuật toán theo cùng một mẫu:
+
 
 1. Tên thuật toán
 2. Input
@@ -315,13 +315,3 @@ python engine.py decide --incident eval/E01.json --history incidents_history.jso
 python grade.py --audit audit.jsonl --expected eval/expected.json
 ```
 
-## 9. Kết luận
-
-Lời giải hiện tại đạt đủ yêu cầu functional của bài:
-
-- chạy được
-- audit được
-- giải thích được
-- đạt `8/8` trên bộ eval
-
-Điểm quan trọng nhất là engine không chỉ “đoán action”, mà có pipeline rõ ràng từ evidence -> retrieval -> weighted voting -> safe decision.
