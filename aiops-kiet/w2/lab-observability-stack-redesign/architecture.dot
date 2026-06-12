@@ -1,0 +1,82 @@
+digraph GeekShopObservability {
+  rankdir=LR;
+  graph [fontname="Inter", bgcolor="white", splines=ortho, pad="0.4"];
+  node [shape=box, style="rounded,filled", fontname="Inter", margin="0.18,0.12"];
+  edge [fontname="Inter", color="#455a64", arrowsize=0.8];
+
+  subgraph cluster_services {
+    label="GeekShop Kubernetes";
+    color="#66bb6a";
+    style="rounded";
+
+    checkout [label="checkout-service", fillcolor="#e8f5e9"];
+    cart [label="cart-service", fillcolor="#e8f5e9"];
+    payment [label="payment-service", fillcolor="#e8f5e9"];
+    order [label="order-service", fillcolor="#e8f5e9"];
+    inventory [label="inventory-service", fillcolor="#e8f5e9"];
+    catalog [label="catalog-service", fillcolor="#e8f5e9"];
+    auth [label="auth-service", fillcolor="#e8f5e9"];
+    search [label="search-service", fillcolor="#e8f5e9"];
+    shipping [label="shipping-service", fillcolor="#e8f5e9"];
+    notification [label="notification-service", fillcolor="#e8f5e9"];
+    collector [label="OTel Collector\nDaemonSet", fillcolor="#fff3e0"];
+    tail [label="Tail-Based\nSampling", fillcolor="#fff3e0"];
+    filter [label="Edge Label\nFiltering", fillcolor="#fff3e0"];
+  }
+
+  subgraph cluster_grafana {
+    label="Grafana SaaS";
+    color="#42a5f5";
+    style="rounded";
+
+    mimir [label="Mimir\nMetrics", fillcolor="#e3f2fd"];
+    loki [label="Loki\nLogs", fillcolor="#e3f2fd"];
+    tempo [label="Tempo\nTraces", fillcolor="#e3f2fd"];
+    grafana [label="Grafana\nUnified UI", fillcolor="#e3f2fd"];
+    am [label="Alertmanager", fillcolor="#e3f2fd"];
+    pd [label="PagerDuty\nBusiness", fillcolor="#f3e5f5"];
+    slack [label="Slack", fillcolor="#f3e5f5"];
+  }
+
+  subgraph cluster_storage {
+    label="Cold Storage";
+    color="#ffb74d";
+    style="rounded";
+
+    s3 [label="S3 Archive\n30+ days", fillcolor="#fff8e1"];
+  }
+
+  checkout -> collector;
+  cart -> collector;
+  payment -> collector;
+  order -> collector;
+  inventory -> collector;
+  catalog -> collector;
+  auth -> collector;
+  search -> collector;
+  shipping -> collector;
+  notification -> collector;
+
+  collector -> tail;
+  tail -> filter;
+  filter -> mimir;
+  filter -> loki;
+  filter -> tempo;
+
+  mimir -> grafana;
+  loki -> grafana;
+  tempo -> grafana;
+
+  mimir -> s3 [style=dashed, color="#fb8c00"];
+  loki -> s3 [style=dashed, color="#fb8c00"];
+  tempo -> s3 [style=dashed, color="#fb8c00"];
+
+  mimir -> am;
+  loki -> am;
+  tempo -> am;
+  am -> pd [label="dedup + route"];
+  am -> slack [label="notify"];
+
+  { rank=same; mimir; loki; tempo; }
+  { rank=same; pd; slack; }
+}

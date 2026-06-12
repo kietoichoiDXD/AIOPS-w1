@@ -1,0 +1,66 @@
+graph TD
+    subgraph SaaS["Grafana SaaS / Managed"]
+        Grafana["Grafana Unified UI"]
+        Mimir["Grafana Mimir"]
+        Loki["Grafana Loki"]
+        Tempo["Grafana Tempo"]
+        AM["Grafana Alertmanager"]
+    end
+
+    subgraph Edge["GeekShop Kubernetes Cluster"]
+        S1["checkout-service"]
+        S2["cart-service"]
+        S3["payment-service"]
+        S4["order-service"]
+        S5["inventory-service"]
+        S6["catalog-service"]
+        S7["auth-service"]
+        S8["search-service"]
+        S9["shipping-service"]
+        S10["notification-service"]
+        OTel["OpenTelemetry Collector DaemonSet"]
+        Tail["Tail-Based Sampling"]
+        Filter["Edge Label Filtering"]
+    end
+
+    subgraph Cold["Cold Storage"]
+        S3["S3 Archive 30+ days"]
+    end
+
+    S1 --> OTel
+    S2 --> OTel
+    S3 --> OTel
+    S4 --> OTel
+    S5 --> OTel
+    S6 --> OTel
+    S7 --> OTel
+    S8 --> OTel
+    S9 --> OTel
+    S10 --> OTel
+
+    OTel --> Tail --> Filter
+    Filter --> Mimir
+    Filter --> Loki
+    Filter --> Tempo
+
+    Mimir --> Grafana
+    Loki --> Grafana
+    Tempo --> Grafana
+
+    Mimir --> S3
+    Loki --> S3
+    Tempo --> S3
+
+    Mimir --> AM
+    Loki --> AM
+    Tempo --> AM
+    AM --> PagerDuty["PagerDuty Business"]
+    AM --> Slack["Slack"]
+
+    classDef saas fill:#e8f3ff,stroke:#1b4d89,color:#0b2545;
+    classDef edge fill:#eef9f0,stroke:#2d6a4f,color:#1b4332;
+    classDef storage fill:#fff3e0,stroke:#c77700,color:#6d4c00;
+
+    class Grafana,Mimir,Loki,Tempo,AM,PagerDuty,Slack saas;
+    class S1,S2,S3,S4,S5,S6,S7,S8,S9,S10,OTel,Tail,Filter edge;
+    class S3 storage;

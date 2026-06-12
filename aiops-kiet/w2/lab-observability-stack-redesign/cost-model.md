@@ -1,0 +1,51 @@
+# Cost Model
+
+## Giả định
+
+Tôi dùng số liệu planning, không phải báo giá hợp đồng:
+- Logs: `$0.50/GB` lưu trữ/ingest tương đương
+- Metrics: tính theo active series, giả định khoảng `$0.05` mỗi 1,000 active series/tháng
+- Traces: Tempo dùng object storage, giả định `$0.02/GB` cộng compute nhẹ
+- Alerting: gần như giữ PagerDuty, chỉ thêm chi phí vận hành Grafana Alertmanager rất nhỏ
+
+## Bảng chi phí
+
+| Line item | Old Vendor | Old Cost | New Vendor | New Target Cost | Unit Driver | Current Scale |
+|---|---|---:|---|---:|---|---:|
+| Metrics ingest/query | Datadog Metrics | 14,000 | Grafana Mimir | 2,000 | 250k active series | 250k series |
+| Logs ingest/search | Splunk Cloud | 16,000 | Grafana Loki | 3,500 | 35 TB/month log volume | 35 TB/month |
+| Traces/APM | Datadog APM | 8,500 | Grafana Tempo | 1,500 | 40M spans/month | 40M spans |
+| Alerting/routing | PagerDuty + routing extras | 2,000 | PagerDuty Business + Alertmanager | 2,000 | 65 engineers on-call | 65 engineers |
+| UI / dashboards | Datadog UI + Splunk UI | 1,500 | Grafana Unified UI | 700 | 12 team dashboards | 12 dashboards |
+| Collector / edge processing | N/A | 0 | OTel Collector | 1,200 | 10 nodes × DaemonSet | 10 nodes |
+| S3 cold retention | N/A | 0 | S3 Archive | 900 | 60 TB retained 30+ days | 60 TB |
+| Total |  | **42,000** |  | **11,800** |  |  |
+
+## Nhận xét
+
+Mức cắt giảm ước tính:
+
+```text
+1 - 11,800 / 42,000 = 71.9%
+```
+
+Mức này vượt yêu cầu 40% và nằm trong vùng 70-80% như đề mong muốn.
+
+## Sensitivity
+
+Nếu log volume tăng nhanh gấp 2 lần dự kiến, hạng mục đầu tiên vỡ budget là:
+- `Loki ingest + storage`
+
+Tác động:
+- từ `3,500` lên khoảng `6,500 - 7,000`
+- vẫn chưa vượt tổng budget 25,200 nếu metrics và traces giữ nguyên
+- nhưng sẽ đẩy nhu cầu:
+  - aggressive label drop
+  - giảm retention nóng
+  - chuyển nhiều log sang S3 cold archive
+
+Kết luận:
+- log là biến số chi phí nhạy nhất
+- metrics và alert routing ổn định hơn
+- trace cost tăng chậm hơn nếu tail sampling làm đúng
+
