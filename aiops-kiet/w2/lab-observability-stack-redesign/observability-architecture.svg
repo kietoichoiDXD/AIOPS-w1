@@ -19,8 +19,17 @@
     <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
       <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0f2942" flood-opacity="0.12"/>
     </filter>
-    <marker id="arrow" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L12,5 L0,10 z" fill="#4f6475"/>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,5 L0,10 z" fill="#2b6cb0"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,5 L0,10 z" fill="#2d6a4f"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,5 L0,10 z" fill="#c77700"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,5 L0,10 z" fill="#7d6cc7"/>
     </marker>
     <style>
       .title { font: 800 34px Inter, Arial, sans-serif; fill: #10324f; }
@@ -37,8 +46,12 @@
       .nodeCore { fill: #ffffff; stroke: #4d89c7; }
       .nodeSaas { fill: #ffffff; stroke: #7d6cc7; }
       .nodeOps { fill: #fff5fa; stroke: #bb3b8c; }
-      .line { stroke: #4f6475; stroke-width: 2.2; fill: none; marker-end: url(#arrow); opacity: 0.95; }
-      .lineSoft { stroke: #8aa0b4; stroke-width: 1.8; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; opacity: 0.9; }
+      .line { fill: none; stroke-width: 2.6; opacity: 0.95; }
+      .lineSoft { fill: none; stroke-width: 2.0; stroke-dasharray: 7 6; opacity: 0.9; }
+      .flowEdge { stroke: #2d6a4f; marker-end: url(#arrowGreen); }
+      .flowCore { stroke: #2b6cb0; marker-end: url(#arrowBlue); }
+      .flowStorage { stroke: #c77700; marker-end: url(#arrowOrange); }
+      .flowOps { stroke: #7d6cc7; marker-end: url(#arrowPurple); }
       .pill { rx: 18; ry: 18; }
     </style>
   </defs>
@@ -143,41 +156,41 @@
   <text x="1685" y="802" class="small">reduce alert storm without losing incidents</text>
 
   <!-- Lines from services to collector -->
-  <path class="line" d="M230 253 C255 253, 255 445, 280 445"/>
-  <path class="line" d="M230 313 C255 313, 255 452, 280 452"/>
-  <path class="line" d="M230 373 C255 373, 255 459, 280 459"/>
-  <path class="line" d="M230 433 C255 433, 255 466, 280 466"/>
-  <path class="line" d="M230 493 C255 493, 255 473, 280 473"/>
-  <path class="line" d="M230 553 C255 553, 255 480, 280 480"/>
-  <path class="line" d="M230 613 C255 613, 255 487, 280 487"/>
-  <path class="line" d="M230 673 C255 673, 255 494, 280 494"/>
-  <path class="line" d="M230 733 C255 733, 255 501, 280 501"/>
-  <path class="line" d="M230 793 C255 793, 255 508, 280 508"/>
+  <path class="line flowEdge" d="M230 253 C255 253, 255 445, 280 445"/>
+  <path class="line flowEdge" d="M230 313 C255 313, 255 452, 280 452"/>
+  <path class="line flowEdge" d="M230 373 C255 373, 255 459, 280 459"/>
+  <path class="line flowEdge" d="M230 433 C255 433, 255 466, 280 466"/>
+  <path class="line flowEdge" d="M230 493 C255 493, 255 473, 280 473"/>
+  <path class="line flowEdge" d="M230 553 C255 553, 255 480, 280 480"/>
+  <path class="line flowEdge" d="M230 613 C255 613, 255 487, 280 487"/>
+  <path class="line flowEdge" d="M230 673 C255 673, 255 494, 280 494"/>
+  <path class="line flowEdge" d="M230 733 C255 733, 255 501, 280 501"/>
+  <path class="line flowEdge" d="M230 793 C255 793, 255 508, 280 508"/>
 
   <!-- Edge -> core -->
-  <path class="line" d="M470 456 C490 456, 490 444, 505 444"/>
-  <path class="line" d="M685 444 C740 444, 740 272, 820 272"/>
-  <path class="line" d="M685 444 C770 444, 770 272, 1025 272"/>
-  <path class="line" d="M685 444 C800 444, 800 272, 1230 272"/>
-  <path class="line" d="M685 530 C790 530, 790 412, 910 412"/>
+  <path class="line flowEdge" d="M470 456 C490 456, 490 444, 505 444"/>
+  <path class="line flowCore" d="M685 444 C740 444, 740 272, 820 272"/>
+  <path class="line flowCore" d="M685 444 C770 444, 770 272, 1025 272"/>
+  <path class="line flowCore" d="M685 444 C800 444, 800 272, 1230 272"/>
+  <path class="line flowCore" d="M685 530 C790 530, 790 412, 910 412"/>
 
   <!-- Core to UI / routing -->
-  <path class="line" d="M990 308 C1030 320, 1030 350, 1040 380"/>
-  <path class="line" d="M1110 308 C1110 330, 1120 350, 1210 380"/>
-  <path class="line" d="M1315 308 C1290 330, 1290 350, 1210 380"/>
-  <path class="line" d="M1040 380 C1040 375, 1040 360, 1040 344"/>
-  <path class="line" d="M1210 414 C1310 414, 1450 640, 1510 654"/>
-  <path class="line" d="M1400 414 C1515 414, 1570 618, 1510 654"/>
-  <path class="line" d="M1210 444 C1320 444, 1600 650, 1700 654"/>
+  <path class="line flowCore" d="M990 308 C1030 320, 1030 350, 1040 380"/>
+  <path class="line flowCore" d="M1110 308 C1110 330, 1120 350, 1210 380"/>
+  <path class="line flowCore" d="M1315 308 C1290 330, 1290 350, 1210 380"/>
+  <path class="line flowCore" d="M1040 380 C1040 375, 1040 360, 1040 344"/>
+  <path class="line flowOps" d="M1210 414 C1310 414, 1450 640, 1510 654"/>
+  <path class="line flowOps" d="M1400 414 C1515 414, 1570 618, 1510 654"/>
+  <path class="line flowOps" d="M1210 444 C1320 444, 1600 650, 1700 654"/>
 
   <!-- Cold storage -->
-  <path class="lineSoft" d="M905 308 C1040 350, 1320 340, 1500 275"/>
-  <path class="lineSoft" d="M1110 308 C1280 350, 1500 350, 1680 275"/>
-  <path class="lineSoft" d="M1315 308 C1470 350, 1600 350, 1680 275"/>
+  <path class="lineSoft flowStorage" d="M905 308 C1040 350, 1320 340, 1500 275"/>
+  <path class="lineSoft flowStorage" d="M1110 308 C1280 350, 1500 350, 1680 275"/>
+  <path class="lineSoft flowStorage" d="M1315 308 C1470 350, 1600 350, 1680 275"/>
 
   <!-- ops note -->
-  <path class="lineSoft" d="M1040 464 C1200 560, 1450 600, 1510 654"/>
-  <path class="lineSoft" d="M1305 464 C1450 560, 1620 600, 1700 654"/>
+  <path class="lineSoft flowOps" d="M1040 464 C1200 560, 1450 600, 1510 654"/>
+  <path class="lineSoft flowOps" d="M1305 464 C1450 560, 1620 600, 1700 654"/>
 
   <text x="180" y="930" class="subtitle">Scale guidance: 1k users = label policy + sampling; 1M users = retention tiers + quota + ownership</text>
   <text x="180" y="956" class="subtitle">Key trade-off: keep the incident path intact while moving cost pressure to the edge and cold storage</text>
