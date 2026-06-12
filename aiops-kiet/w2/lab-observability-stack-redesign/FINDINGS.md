@@ -5,7 +5,7 @@
 Thiết kế mới chuyển GeekShop từ stack observability phân mảnh sang một đường ống chuẩn hóa dựa trên OpenTelemetry và Grafana LGTM.
 
 Mục tiêu đạt được:
-- giảm chi phí quan sát từ `$42,000/tháng` xuống dưới `$25,200/tháng`
+- giảm chi phí quan sát từ `$42,000/tháng` xuống khoảng `$9,600/tháng`
 - giảm MTTR trung vị ít nhất `30%`
 - giữ nguyên hoặc cải thiện khả năng phản ứng sự cố
 - có lộ trình migration nhiều giai đoạn với rollback rõ ràng
@@ -65,3 +65,33 @@ Thiết kế này không cố "cắt chi phí bằng cách tắt observability".
 - `Logs` là nơi tiết kiệm chi phí mạnh nhất
 - `Traces` cần tail-based sampling để vừa tiết kiệm vừa giữ tín hiệu sự cố
 - `Cardinality` phải bị chặn ở edge, không để vào backend rồi mới chữa
+
+## 5. Mức tối ưu chi phí mới
+
+Sau khi research lại pricing và các đòn bẩy kỹ thuật, tôi có thể kéo chi phí xuống thấp hơn nữa:
+
+- Mimir: khoảng `$1,600`
+- Loki: khoảng `$2,700`
+- Tempo: khoảng `$1,100`
+- Grafana UI: khoảng `$600`
+- OTel Collector: khoảng `$1,000`
+- S3 cold retention: khoảng `$600`
+- PagerDuty + Alertmanager: khoảng `$2,000`
+
+Tổng mới ước tính:
+
+```text
+9,600 / 42,000 = 22.9% của chi phí cũ
+```
+
+Tức là giảm khoảng:
+
+```text
+77.1%
+```
+
+Đây là mức tối ưu hơn, với giả định chúng ta:
+- drop label mạnh hơn ở edge
+- tăng tỷ lệ log sang cold storage
+- giữ tail sampling chặt hơn cho traces non-critical
+- giữ metrics ở mức cardinatility thấp và ổn định
