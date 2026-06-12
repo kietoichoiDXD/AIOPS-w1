@@ -1,90 +1,184 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="860" viewBox="0 0 1680 860">
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080">
   <defs>
-    <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto" markerUnits="strokeWidth">
-      <path d="M0,0 L10,4 L0,8 z" fill="#455a64"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f7fbff"/>
+      <stop offset="100%" stop-color="#eef4fb"/>
+    </linearGradient>
+    <linearGradient id="edgeGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ebfff1"/>
+      <stop offset="100%" stop-color="#dff7ea"/>
+    </linearGradient>
+    <linearGradient id="coreGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#e9f4ff"/>
+      <stop offset="100%" stop-color="#d8ebff"/>
+    </linearGradient>
+    <linearGradient id="storageGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fff3df"/>
+      <stop offset="100%" stop-color="#ffe6bf"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="8" stdDeviation="14" flood-color="#0f2942" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="10" refX="10" refY="5" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L12,5 L0,10 z" fill="#4f6475"/>
     </marker>
     <style>
-      .title { font: 700 26px Inter, Arial, sans-serif; fill: #102a43; }
-      .subtitle { font: 400 14px Inter, Arial, sans-serif; fill: #486581; }
-      .group { fill: #ffffff; stroke: #90a4ae; stroke-width: 2; rx: 18; ry: 18; }
-      .saas { fill: #e8f3ff; stroke: #1b4d89; }
-      .edge { fill: #eef9f0; stroke: #2d6a4f; }
-      .storage { fill: #fff3e0; stroke: #c77700; }
-      .node { fill: #ffffff; stroke: #627d98; stroke-width: 1.5; rx: 12; ry: 12; }
-      .nodeEdge { fill: #fff8e1; stroke: #b26a00; }
-      .nodeBlue { fill: #e3f2fd; stroke: #1565c0; }
-      .nodePurple { fill: #f3e5f5; stroke: #7b1fa2; }
-      .label { font: 600 14px Inter, Arial, sans-serif; fill: #102a43; text-anchor: middle; }
-      .small { font: 400 12px Inter, Arial, sans-serif; fill: #243b53; text-anchor: middle; }
-      .edgeLine { stroke: #455a64; stroke-width: 2; fill: none; marker-end: url(#arrow); }
-      .dashLine { stroke: #fb8c00; stroke-width: 2; fill: none; stroke-dasharray: 6 5; marker-end: url(#arrow); }
+      .title { font: 800 34px Inter, Arial, sans-serif; fill: #10324f; }
+      .subtitle { font: 400 16px Inter, Arial, sans-serif; fill: #4f6475; }
+      .section { font: 700 18px Inter, Arial, sans-serif; fill: #10324f; }
+      .label { font: 600 15px Inter, Arial, sans-serif; fill: #102a43; text-anchor: middle; }
+      .small { font: 400 12px Inter, Arial, sans-serif; fill: #52657a; text-anchor: middle; }
+      .box { stroke-width: 1.7; rx: 18; ry: 18; filter: url(#shadow); }
+      .edgeBox { fill: url(#edgeGrad); stroke: #4caf7d; }
+      .coreBox { fill: url(#coreGrad); stroke: #4d89c7; }
+      .storageBox { fill: url(#storageGrad); stroke: #c77700; }
+      .node { fill: #ffffff; stroke: #7c97b1; stroke-width: 1.5; rx: 14; ry: 14; filter: url(#shadow); }
+      .nodeEdge { fill: #fffdf1; stroke: #d6a21e; }
+      .nodeCore { fill: #ffffff; stroke: #4d89c7; }
+      .nodeSaas { fill: #ffffff; stroke: #7d6cc7; }
+      .nodeOps { fill: #fff5fa; stroke: #bb3b8c; }
+      .line { stroke: #4f6475; stroke-width: 2.2; fill: none; marker-end: url(#arrow); opacity: 0.95; }
+      .lineSoft { stroke: #8aa0b4; stroke-width: 1.8; fill: none; marker-end: url(#arrow); stroke-dasharray: 6 5; opacity: 0.9; }
+      .pill { rx: 18; ry: 18; }
     </style>
   </defs>
 
-  <text x="840" y="40" class="title" text-anchor="middle">GeekShop Observability Redesign</text>
-  <text x="840" y="64" class="subtitle" text-anchor="middle">OTel Collector at the edge, Grafana LGTM in the middle, PagerDuty kept for routing</text>
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <text x="960" y="58" class="title" text-anchor="middle">GeekShop Observability Redesign</text>
+  <text x="960" y="88" class="subtitle" text-anchor="middle">Clean edge ingestion, one control plane, hot/warm/cold retention, and PagerDuty kept for routing stability</text>
 
-  <rect x="30" y="100" width="920" height="690" class="group edge"/>
-  <text x="60" y="130" class="label" text-anchor="start">GeekShop Kubernetes</text>
+  <rect x="40" y="130" width="700" height="760" class="box edgeBox"/>
+  <text x="70" y="165" class="section">1. Edge collection</text>
+  <text x="70" y="190" class="subtitle">10 services emit telemetry to one OTel Collector DaemonSet</text>
 
-  <rect x="1000" y="100" width="520" height="690" class="group saas"/>
-  <text x="1030" y="130" class="label" text-anchor="start">Grafana SaaS / Managed</text>
+  <rect x="780" y="130" width="660" height="760" class="box coreBox"/>
+  <text x="810" y="165" class="section">2. Grafana control plane</text>
+  <text x="810" y="190" class="subtitle">Tail sampling and label control before export to Mimir / Loki / Tempo</text>
 
-  <rect x="1000" y="640" width="520" height="150" class="group storage"/>
-  <text x="1030" y="670" class="label" text-anchor="start">Cold Storage</text>
+  <rect x="1470" y="130" width="410" height="350" class="box storageBox"/>
+  <text x="1500" y="165" class="section">3. Cold storage</text>
+  <text x="1500" y="190" class="subtitle">Long retention without keeping hot storage expensive</text>
+
+  <rect x="1470" y="520" width="410" height="370" class="box coreBox"/>
+  <text x="1500" y="555" class="section">4. Incident response</text>
+  <text x="1500" y="580" class="subtitle">Single UI and stable routing for on-call</text>
 
   <g>
-    <rect x="60" y="170" width="150" height="44" class="node"/><text x="135" y="198" class="label">checkout</text>
-    <rect x="60" y="225" width="150" height="44" class="node"/><text x="135" y="253" class="label">cart</text>
-    <rect x="60" y="280" width="150" height="44" class="node"/><text x="135" y="308" class="label">payment</text>
-    <rect x="60" y="335" width="150" height="44" class="node"/><text x="135" y="363" class="label">order</text>
-    <rect x="60" y="390" width="150" height="44" class="node"/><text x="135" y="418" class="label">inventory</text>
-    <rect x="60" y="445" width="150" height="44" class="node"/><text x="135" y="473" class="label">catalog</text>
-    <rect x="60" y="500" width="150" height="44" class="node"/><text x="135" y="528" class="label">auth</text>
-    <rect x="60" y="555" width="150" height="44" class="node"/><text x="135" y="583" class="label">search</text>
-    <rect x="60" y="610" width="150" height="44" class="node"/><text x="135" y="638" class="label">shipping</text>
-    <rect x="60" y="665" width="150" height="44" class="node"/><text x="135" y="693" class="label">notification</text>
+    <rect x="80" y="230" width="150" height="46" class="node"/>
+    <text x="155" y="258" class="label">checkout</text>
+    <rect x="80" y="290" width="150" height="46" class="node"/>
+    <text x="155" y="318" class="label">cart</text>
+    <rect x="80" y="350" width="150" height="46" class="node"/>
+    <text x="155" y="378" class="label">payment</text>
+    <rect x="80" y="410" width="150" height="46" class="node"/>
+    <text x="155" y="438" class="label">order</text>
+    <rect x="80" y="470" width="150" height="46" class="node"/>
+    <text x="155" y="498" class="label">inventory</text>
+    <rect x="80" y="530" width="150" height="46" class="node"/>
+    <text x="155" y="558" class="label">catalog</text>
+    <rect x="80" y="590" width="150" height="46" class="node"/>
+    <text x="155" y="618" class="label">auth</text>
+    <rect x="80" y="650" width="150" height="46" class="node"/>
+    <text x="155" y="678" class="label">search</text>
+    <rect x="80" y="710" width="150" height="46" class="node"/>
+    <text x="155" y="738" class="label">shipping</text>
+    <rect x="80" y="770" width="150" height="46" class="node"/>
+    <text x="155" y="798" class="label">notification</text>
   </g>
 
-  <rect x="280" y="330" width="170" height="76" class="node nodeEdge"/><text x="365" y="362" class="label">OTel Collector</text><text x="365" y="383" class="small">DaemonSet</text>
-  <rect x="490" y="330" width="150" height="64" class="node nodeEdge"/><text x="565" y="357" class="label">Tail Sampling</text>
-  <rect x="670" y="330" width="150" height="64" class="node nodeEdge"/><text x="745" y="357" class="label">Label Filtering</text>
+  <rect x="280" y="420" width="190" height="92" class="node nodeEdge"/>
+  <text x="375" y="452" class="label">OTel Collector</text>
+  <text x="375" y="475" class="small">DaemonSet at the edge</text>
+  <text x="375" y="494" class="small">drop labels + batch + buffer</text>
 
-  <rect x="1040" y="180" width="170" height="58" class="node nodeBlue"/><text x="1125" y="206" class="label">Mimir</text><text x="1125" y="226" class="small">Metrics</text>
-  <rect x="1240" y="180" width="170" height="58" class="node nodeBlue"/><text x="1325" y="206" class="label">Loki</text><text x="1325" y="226" class="small">Logs</text>
-  <rect x="1040" y="280" width="170" height="58" class="node nodeBlue"/><text x="1125" y="306" class="label">Tempo</text><text x="1125" y="326" class="small">Traces</text>
-  <rect x="1240" y="280" width="170" height="58" class="node nodeBlue"/><text x="1325" y="306" class="label">Grafana UI</text><text x="1325" y="326" class="small">Unified</text>
-  <rect x="1040" y="380" width="170" height="58" class="node nodeBlue"/><text x="1125" y="406" class="label">Alertmanager</text>
-  <rect x="1240" y="380" width="170" height="58" class="node nodePurple"/><text x="1325" y="406" class="label">PagerDuty</text><text x="1325" y="426" class="small">Business</text>
-  <rect x="1240" y="470" width="170" height="58" class="node nodePurple"/><text x="1325" y="496" class="label">Slack</text>
+  <rect x="505" y="410" width="180" height="68" class="node nodeEdge"/>
+  <text x="595" y="440" class="label">Tail Sampling</text>
+  <text x="595" y="460" class="small">keep failed / slow traces</text>
 
-  <rect x="1080" y="690" width="260" height="60" class="node storage"/><text x="1210" y="718" class="label">S3 Archive</text><text x="1210" y="738" class="small">30+ days retention</text>
+  <rect x="505" y="500" width="180" height="68" class="node nodeEdge"/>
+  <text x="595" y="530" class="label">Label Filtering</text>
+  <text x="595" y="550" class="small">cardinality guard</text>
 
-  <path class="edgeLine" d="M210 192 L280 367"/>
-  <path class="edgeLine" d="M210 247 L280 367"/>
-  <path class="edgeLine" d="M210 302 L280 367"/>
-  <path class="edgeLine" d="M210 357 L280 367"/>
-  <path class="edgeLine" d="M210 412 L280 367"/>
-  <path class="edgeLine" d="M210 467 L280 367"/>
-  <path class="edgeLine" d="M210 522 L280 367"/>
-  <path class="edgeLine" d="M210 577 L280 367"/>
-  <path class="edgeLine" d="M210 632 L280 367"/>
-  <path class="edgeLine" d="M210 687 L280 367"/>
-  <path class="edgeLine" d="M450 368 L490 362"/>
-  <path class="edgeLine" d="M640 362 L670 362"/>
-  <path class="edgeLine" d="M820 358 L1040 209"/>
-  <path class="edgeLine" d="M820 362 L1240 209"/>
-  <path class="edgeLine" d="M820 366 L1040 309"/>
-  <path class="edgeLine" d="M820 370 L1240 309"/>
-  <path class="edgeLine" d="M820 374 L1040 409"/>
-  <path class="edgeLine" d="M820 378 L1240 409"/>
-  <path class="edgeLine" d="M1195 209 L1240 209"/>
-  <path class="edgeLine" d="M1115 238 L1210 690"/>
-  <path class="edgeLine" d="M1315 238 L1210 690"/>
-  <path class="edgeLine" d="M1115 338 L1210 690"/>
-  <path class="edgeLine" d="M1125 438 L1325 380"/>
-  <path class="edgeLine" d="M1125 438 L1325 480"/>
-  <path class="edgeLine" d="M1195 409 L1240 409"/>
+  <rect x="820" y="240" width="170" height="68" class="node nodeSaas"/>
+  <text x="905" y="270" class="label">Mimir</text>
+  <text x="905" y="290" class="small">PromQL metrics</text>
 
-  <text x="840" y="820" class="subtitle" text-anchor="middle">Edge: sampling + label control | SaaS: query + UI | Cold: long retention</text>
+  <rect x="1025" y="240" width="170" height="68" class="node nodeSaas"/>
+  <text x="1110" y="270" class="label">Loki</text>
+  <text x="1110" y="290" class="small">LogQL logs</text>
+
+  <rect x="1230" y="240" width="170" height="68" class="node nodeSaas"/>
+  <text x="1315" y="270" class="label">Tempo</text>
+  <text x="1315" y="290" class="small">TraceQL traces</text>
+
+  <rect x="910" y="380" width="260" height="84" class="node nodeSaas"/>
+  <text x="1040" y="412" class="label">Grafana Unified UI</text>
+  <text x="1040" y="434" class="small">single pane for triage</text>
+  <text x="1040" y="452" class="small">less context switching</text>
+
+  <rect x="1210" y="380" width="190" height="84" class="node nodeSaas"/>
+  <text x="1305" y="412" class="label">Alertmanager</text>
+  <text x="1305" y="434" class="small">dedup + inhibition</text>
+  <text x="1305" y="452" class="small">route by owner</text>
+
+  <rect x="1500" y="240" width="150" height="70" class="node"/>
+  <text x="1575" y="270" class="label">S3 archive</text>
+  <text x="1575" y="292" class="small">30+ days</text>
+
+  <rect x="1680" y="240" width="150" height="70" class="node"/>
+  <text x="1755" y="270" class="label">S3 archive</text>
+  <text x="1755" y="292" class="small">trace backup</text>
+
+  <rect x="1510" y="620" width="160" height="68" class="node nodeOps"/>
+  <text x="1590" y="650" class="label">PagerDuty</text>
+  <text x="1590" y="670" class="small">keep schedule</text>
+
+  <rect x="1700" y="620" width="160" height="68" class="node nodeOps"/>
+  <text x="1780" y="650" class="label">Slack</text>
+  <text x="1780" y="670" class="small">secondary notify</text>
+
+  <rect x="1510" y="730" width="350" height="88" class="node nodeSaas"/>
+  <text x="1685" y="762" class="label">Operational guardrails</text>
+  <text x="1685" y="784" class="small">dedup, routing, inhibition, escalation policy</text>
+  <text x="1685" y="802" class="small">reduce alert storm without losing incidents</text>
+
+  <!-- Lines from services to collector -->
+  <path class="line" d="M230 253 C255 253, 255 445, 280 445"/>
+  <path class="line" d="M230 313 C255 313, 255 452, 280 452"/>
+  <path class="line" d="M230 373 C255 373, 255 459, 280 459"/>
+  <path class="line" d="M230 433 C255 433, 255 466, 280 466"/>
+  <path class="line" d="M230 493 C255 493, 255 473, 280 473"/>
+  <path class="line" d="M230 553 C255 553, 255 480, 280 480"/>
+  <path class="line" d="M230 613 C255 613, 255 487, 280 487"/>
+  <path class="line" d="M230 673 C255 673, 255 494, 280 494"/>
+  <path class="line" d="M230 733 C255 733, 255 501, 280 501"/>
+  <path class="line" d="M230 793 C255 793, 255 508, 280 508"/>
+
+  <!-- Edge -> core -->
+  <path class="line" d="M470 456 C490 456, 490 444, 505 444"/>
+  <path class="line" d="M685 444 C740 444, 740 272, 820 272"/>
+  <path class="line" d="M685 444 C770 444, 770 272, 1025 272"/>
+  <path class="line" d="M685 444 C800 444, 800 272, 1230 272"/>
+  <path class="line" d="M685 530 C790 530, 790 412, 910 412"/>
+
+  <!-- Core to UI / routing -->
+  <path class="line" d="M990 308 C1030 320, 1030 350, 1040 380"/>
+  <path class="line" d="M1110 308 C1110 330, 1120 350, 1210 380"/>
+  <path class="line" d="M1315 308 C1290 330, 1290 350, 1210 380"/>
+  <path class="line" d="M1040 380 C1040 375, 1040 360, 1040 344"/>
+  <path class="line" d="M1210 414 C1310 414, 1450 640, 1510 654"/>
+  <path class="line" d="M1400 414 C1515 414, 1570 618, 1510 654"/>
+  <path class="line" d="M1210 444 C1320 444, 1600 650, 1700 654"/>
+
+  <!-- Cold storage -->
+  <path class="lineSoft" d="M905 308 C1040 350, 1320 340, 1500 275"/>
+  <path class="lineSoft" d="M1110 308 C1280 350, 1500 350, 1680 275"/>
+  <path class="lineSoft" d="M1315 308 C1470 350, 1600 350, 1680 275"/>
+
+  <!-- ops note -->
+  <path class="lineSoft" d="M1040 464 C1200 560, 1450 600, 1510 654"/>
+  <path class="lineSoft" d="M1305 464 C1450 560, 1620 600, 1700 654"/>
+
+  <text x="180" y="930" class="subtitle">Scale guidance: 1k users = label policy + sampling; 1M users = retention tiers + quota + ownership</text>
+  <text x="180" y="956" class="subtitle">Key trade-off: keep the incident path intact while moving cost pressure to the edge and cold storage</text>
 </svg>
