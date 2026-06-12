@@ -1,50 +1,50 @@
-# FINDINGS — Evidence-Driven Remediation Engine
+# FINDINGS - Evidence-Driven Remediation Engine
 
-Final score: **8/8 correct, 0 forbidden actions triggered.**
+Điểm cuối cùng: **8/8 đúng, không kích hoạt hành động bị cấm**.
 
 ---
 
-## Q1 — Which similarity function did you choose for Layer 2, and why?
+## Câu 1 - Bạn chọn hàm similarity nào cho Layer 2, và vì sao?
 
-### Chosen function
+### Hàm được chọn
 
-Weighted linear combination of four Jaccard-based sub-scores plus a trigger bonus:
+Tổ hợp tuyến tính có trọng số của bốn thành phần con dựa trên Jaccard, cộng thêm một bonus cho trigger:
 
-```
+```text
 sim(q, h) = 0.40 * log_sim
           + 0.28 * trace_sim
           + 0.20 * metric_sim
           + 0.12 * service_sim
-          + 0.12 (bonus if trigger_service ∈ affected_services of h)
+          + 0.12 (bonus nếu trigger_service ∈ affected_services của h)
 ```
 
-Each sub-score is Jaccard similarity over a set or counter representation:
-- `log_sim`: counter-Jaccard over masked log token bags (`pool`, `timeout`, `connection`, etc.)
-- `trace_sim`: set-Jaccard over (from, to) service-pairs from traces
-- `metric_sim`: set-Jaccard over metric key names (`payment-svc.cpu`, etc.)
-- `service_sim`: set-Jaccard over service names appearing in the incident
+Mỗi thành phần con là Jaccard similarity trên một biểu diễn tập hoặc counter:
+- `log_sim`: counter-Jaccard trên túi token log đã mask (`pool`, `timeout`, `connection`, ...)
+- `trace_sim`: set-Jaccard trên các cặp service `(from, to)` lấy từ trace
+- `metric_sim`: set-Jaccard trên tên metric (`payment-svc.cpu`, ...)
+- `service_sim`: set-Jaccard trên các tên service xuất hiện trong incident
 
-### Why not cosine over TF-IDF embeddings?
+### Vì sao không dùng cosine trên TF-IDF embedding?
 
-With only ~29 historical entries, a high-dimensional TF-IDF vector would overfit to surface vocabulary. Consider E03 (memory-leak on `esb`): the service `esb` does not appear in any historical entry, so cosine over service-name vectors scores 0 for all neighbors. The weighted Jaccard still captures partial overlap on log keywords (`heap`, `gc_pause`) independently.
+Với chỉ khoảng 29 bản ghi lịch sử, vector TF-IDF chiều cao dễ bị overfit vào từ vựng bề mặt. Xét E03, một sự cố memory leak trên `esb`: service `esb` không xuất hiện trong bất kỳ bản ghi lịch sử nào, nên cosine dựa trên vector tên service cho điểm 0 với mọi láng giềng. Trong khi đó, weighted Jaccard vẫn bắt được phần giao nhau trên keyword log (`heap`, `gc_pause`) một cách độc lập.
 
-### Why not pure metric distance?
+### Vì sao không dùng khoảng cách metric thuần?
 
-Metrics drift slowly; absolute values are not stable across incidents occurring weeks apart. E04 had the highest metric anomaly scores but log tokens (`nxdomain`, `dns`) matched nothing in the history corpus — metric-only similarity would rank it identically to any high-latency incident and pick a wrong action.
+Metrics thay đổi chậm; giá trị tuyệt đối không ổn định giữa các incident cách nhau vài tuần. E04 có điểm anomaly metric cao nhất nhưng token log (`nxdomain`, `dns`) lại không khớp gì với corpus lịch sử - nếu chỉ dùng metric-only similarity, nó sẽ bị xếp giống mọi incident latency cao khác và rất dễ chọn sai action.
 
-### Alternative considered: Euclidean on normalized metric deltas
+### Phương án thay thế đã cân nhắc: Euclidean trên metric delta đã chuẩn hóa
 
-Tested informally by removing the 0.12 trace weight and folding it into metric_sim. E06 broke: the conflicting-evidence incident has logs pointing at `payment-svc` (pool) but traces pointing at `cart-svc → cart-redis`. A metric-heavier similarity blindly followed the log signal and would vote `rollback_service:payment-svc` — which is the forbidden answer for E06. Keeping trace_sim at 0.28 preserved the disagreement signal that the decision layer uses to escalate.
+Tôi đã thử theo cách không chính thức bằng việc bỏ trọng số trace 0.12 và gộp sang `metric_sim`. E06 bị vỡ: incident có tín hiệu mâu thuẫn này có log chỉ vào `payment-svc` (pool) nhưng trace lại chỉ vào `cart-svc → cart-redis`. Similarity thiên về metric sẽ đi theo tín hiệu log một cách mù quáng và có thể vote `rollback_service:payment-svc` - đây chính là đáp án bị cấm cho E06. Giữ `trace_sim` ở mức 0.28 giúp bảo toàn tín hiệu bất đồng mà decision layer cần để escalate.
 
 ---
 
-## Q2 — How does outcome-weighted voting change the candidate ranking?
+## Câu 2 - Voting có trọng số theo outcome làm thay đổi xếp hạng ứng viên như thế nào?
 
-### Demonstration: E05 (tie-breaking incident)
+### Minh họa: E05 (incident cần phá thế đồng hạng)
 
-E05's trigger is `payment-svc` with `db-degradation`. Top-5 neighbors and their raw similarities:
+Trigger của E05 là `payment-svc` với `db-degradation`. Top-5 láng giềng và similarity thô:
 
-| Rank | History ID | Similarity | Outcome | Actions |
+| Hạng | History ID | Similarity | Outcome | Actions |
 |------|-----------|------------|---------|---------|
 | 1 | INC-2025-11-08 | 0.3267 | success | rollback_service, increase_pool_size |
 | 2 | INC-2025-09-05 | 0.2715 | success | rollback_service, increase_pool_size |
@@ -52,27 +52,27 @@ E05's trigger is `payment-svc` with `db-degradation`. Top-5 neighbors and their 
 | 4 | INC-2026-01-04 | 0.1954 | success | page_oncall |
 | 5 | INC-2025-07-04 | 0.1934 | success | restart_pod |
 
-Ranks 2 and 3 tie on similarity (0.2715). Under **pure-similarity voting** (ignoring outcome), both contribute equally. But `INC-2026-05-10` had outcome `partial`, so its vote weight is `0.2715 × (1/3) × 0.6 = 0.0543`, while `INC-2025-09-05` (success) contributes `0.2715 × (1/2) × 1.0 = 0.1357` — 2.5× more weight despite identical similarity.
+Hạng 2 và 3 bằng nhau về similarity (0.2715). Nếu dùng **pure-similarity voting** và bỏ qua outcome, cả hai sẽ đóng góp ngang nhau. Nhưng `INC-2026-05-10` có outcome `partial`, nên trọng số phiếu của nó là `0.2715 × (1/3) × 0.6 = 0.0543`, trong khi `INC-2025-09-05` (success) đóng góp `0.2715 × (1/2) × 1.0 = 0.1357` - lớn hơn 2.5 lần dù similarity giống hệt.
 
-Final action vote totals:
+Tổng phiếu cuối cùng:
 
-| Action | Score (outcome-weighted) | Score (pure-similarity, hypothetical) |
-|--------|--------------------------|---------------------------------------|
+| Action | Điểm (có trọng số outcome) | Điểm (thuần similarity, giả định) |
+|--------|----------------------------|-----------------------------------|
 | rollback_service | **0.5167** | ~0.5710 |
 | increase_pool_size | 0.4624 | ~0.5167 |
 | page_oncall | 0.0171 | ~0.0195 |
 
-Without outcome weighting, `increase_pool_size` and `rollback_service` would be nearly tied (0.5167 vs 0.5710) and the ordering could flip depending on implementation details. With outcome weighting, `rollback_service` wins clearly because the `partial`-outcome neighbor that only voted for rollback (not increase_pool_size) gets down-weighted — correctly surfacing that rollback alone was the safer, more validated path. The engine selected `rollback_service`, matching the expected answer.
+Nếu không có outcome weighting, `increase_pool_size` và `rollback_service` sẽ gần như hòa (0.5167 vs 0.5710) và thứ tự có thể lật tùy theo chi tiết cài đặt. Khi có outcome weighting, `rollback_service` thắng rõ ràng vì láng giềng `partial` chỉ vote cho rollback chứ không vote cho increase_pool_size bị giảm trọng số - điều này phản ánh đúng rằng rollback đơn lẻ là con đường an toàn và đã được kiểm chứng hơn. Engine chọn `rollback_service`, khớp với đáp án kỳ vọng.
 
 ---
 
-## Q3 — EV calculation in full for E01
+## Câu 3 - Tính EV đầy đủ cho E01
 
-**Incident:** E01 — `checkout-svc` latency-p99-high, root cause: connection pool exhaustion on `payment-svc`.
+**Incident:** E01 - `checkout-svc` latency-p99-high, root cause: connection pool exhaustion trên `payment-svc`.
 
-### Top-5 neighbors
+### Top-5 láng giềng
 
-| Rank | History ID | sim | outcome_w | rank_w |
+| Hạng | History ID | sim | outcome_w | rank_w |
 |------|-----------|-----|-----------|--------|
 | 1 | INC-2025-11-08 | 0.2436 | 1.0 (success) | 1/1 |
 | 2 | INC-2026-04-02 | 0.1952 | 0.6 (partial) | 1/2 |
@@ -80,189 +80,112 @@ Without outcome weighting, `increase_pool_size` and `rollback_service` would be 
 | 4 | INC-2025-07-19 | 0.1457 | 1.0 (success) | 1/4 |
 | 5 | INC-2026-03-20 | 0.1457 | 0.6 (partial) | 1/5 |
 
-### Action vote accumulation
+### Cộng dồn phiếu cho action
 
-```
+```text
 vote(rollback_service) = 0.2436 × 1.0 × 1.0         = 0.2436   (rank 1, success)
-vote(increase_pool_size) = 0.2436 × 1.0 × 1.0        = 0.2436   (rank 1, success)
-vote(page_oncall) from rank 2 = 0.1952 × (1/2) × 0.6 × 0.35 = 0.0205
-                  from rank 4 = 0.1457 × (1/4) × 1.0 × 0.35 = 0.0127
-                  from rank 5 = 0.1457 × (1/5) × 0.6 × 0.35 = 0.0061
-                  total page_oncall = 0.0394  (page_oncall penalty ×0.35 applied)
-vote(restart_pod) = 0.1925 × (1/3) × 1.0 × 1.0       = 0.0642   (rank 3, success)
+vote(increase_pool_size) = 0.2436 × 1.0 × 1.0      = 0.2436   (rank 1, success)
+vote(page_oncall) từ rank 2 = 0.1952 × (1/2) × 0.6 × 0.35 = 0.0205
+                  từ rank 4 = 0.1457 × (1/4) × 1.0 × 0.35 = 0.0127
+                  từ rank 5 = 0.1457 × (1/5) × 0.6 × 0.35 = 0.0061
+                  tổng page_oncall = 0.0394  (đã áp dụng phạt ×0.35 cho page_oncall)
+vote(restart_pod) = 0.1925 × (1/3) × 1.0 × 1.0    = 0.0642   (rank 3, success)
 ```
 
-Total vote mass = 0.2436 + 0.2436 + 0.0642 + 0.0394 = 0.5908
+Tổng khối lượng phiếu = 0.2436 + 0.2436 + 0.0642 + 0.0394 = 0.5908
 
-```
+```text
 p_success(rollback_service) = 0.2436 / 0.5908 = 0.4123
 ```
 
-### Utility (EV) calculation
+### Tính utility (EV)
 
-From `actions.yaml`: `rollback_service` has cost_min=10, downtime_min=2, blast_radius_services=1.
+Từ `actions.yaml`: `rollback_service` có `cost_min=10`, `downtime_min=2`, `blast_radius_services=1`.
 
-```
+```text
 utility = 3.0 × p_success − 0.05 × cost − 0.08 × downtime − 0.12 × blast
         = 3.0 × 0.4123  − 0.05 × 10   − 0.08 × 2          − 0.12 × 1
         = 1.2369         − 0.50        − 0.16               − 0.12
         = 0.4569
 ```
 
-Blast radius gate: blast=1 < 3, no gate triggered. p_success=0.41 > 0.25 threshold. Utility=0.457 > 0.10 floor.
+Ngưỡng blast radius: `blast=1 < 3`, nên không kích hoạt gate. `p_success=0.41 > 0.25`. `utility=0.457 > 0.10`.
 
-**Selected action:** `rollback_service` on `payment-svc`, confidence=0.5911. ✓ Matches accepted_actions.
+**Action được chọn:** `rollback_service` trên `payment-svc`, confidence=`0.5911`. Khớp với `accepted_actions`.
 
-### Why not `increase_pool_size`?
+### Vì sao không chọn `increase_pool_size`?
 
-Both actions scored identically at vote-level (0.2436). The sort order in Python's `sorted()` is stable, and `rollback_service` appeared first alphabetically in the vote accumulation order — but more importantly, the tie was broken by the fact that `rollback_service` is the action name that appears first in the sorted `action_votes` output. In practice both actions are correct per `expected.json`; the engine selected the higher-blast-cost one, which is fine because blast=1 is the same for both.
-
----
-
-## Q4 — When did the engine choose to escalate, and was it correct?
-
-The engine escalated (selected `page_oncall`) on **E02, E04, E06, E07, E08**.
-
-| Incident | Decision path | Ground truth | Correct? |
-|----------|--------------|--------------|----------|
-| E02 | `escalate_tls` — log keywords `tls`, `certificate`, `fail` triggered hard escalation | page_oncall accepted | ✓ |
-| E04 | `escalate_dns` — log keywords `dns`, `nxdomain` triggered hard escalation | page_oncall accepted | ✓ |
-| E06 | `escalate_disagreement` — dominant log service (`payment-svc`) ≠ dominant metric service (`cart-svc`) | page_oncall accepted | ✓ |
-| E07 | `escalate` — top action votes all landed on `page_oncall` via voting (all neighbors recommended human escalation) | page_oncall required | ✓ |
-| E08 | `escalate_ood` — best_similarity=0.021 < OOD threshold 0.06 | page_oncall accepted | ✓ |
-
-The engine did **not** escalate on E01, E03, E05 — and in all three cases escalation was explicitly forbidden (`must_not_action: page_oncall` for E01 and E03) or equally acceptable with auto-action (E05 chose rollback, which is the preferred outcome).
-
-**Key design decision:** `page_oncall` in `actions.yaml` has cost=0 and blast_radius=0 — naively it always maximises utility. The engine counters this with (1) a hard ×0.35 penalty on `page_oncall` vote weight in Layer 2, (2) OOD / signal-based hard-escalation gates in Layer 3 that only trigger when there is positive evidence for escalation, not absence of evidence for auto-action.
+Hai action này có điểm vote ngang nhau (`0.2436`). Thứ tự sort trong Python là ổn định, và `rollback_service` đứng trước trong thứ tự tích lũy phiếu - nhưng quan trọng hơn là cả hai đều đúng theo `expected.json`. Engine chọn action có blast/cost tương đương nhưng vẫn là phương án chấp nhận được vì blast=1 là như nhau cho cả hai.
 
 ---
 
-## Q5 — What incident class breaks the engine, and what is the concrete fix?
+## Câu 4 - Khi nào engine chọn escalate, và có đúng không?
 
-### Most likely failure class: multi-service cascade with a non-alerting root
+Engine escalate (chọn `page_oncall`) ở **E02, E04, E06, E07, E08**.
 
-E08 is the clearest example. The alert fires on `bb-edge` (the leaf), but the true root is `t24-service` (the deepest node, showing db_replica_lag drift). The engine correctly escalated because best_similarity=0.021 hit the OOD threshold — but the *right* answer isn't just "page someone"; it is `rollback_service:t24-service`. The engine lacked the topology-traversal logic to walk the trace graph upstream and identify `t24-service` as the root emitter.
+| Incident | Luồng quyết định | Ground truth | Đúng? |
+|----------|------------------|--------------|-------|
+| E02 | `escalate_tls` - keyword log `tls`, `certificate`, `fail` kích hoạt hard escalation | page_oncall được chấp nhận | ✓ |
+| E04 | `escalate_dns` - keyword `dns`, `nxdomain` kích hoạt hard escalation | page_oncall được chấp nhận | ✓ |
+| E06 | `escalate_disagreement` - dominant log service (`payment-svc`) khác dominant metric service (`cart-svc`) | page_oncall được chấp nhận | ✓ |
+| E07 | `escalate` - toàn bộ phiếu action dồn vào `page_oncall` qua voting (mọi láng giềng đều khuyên gọi người) | phải page human | ✓ |
+| E08 | `escalate_ood` - best_similarity=0.021 thấp hơn ngưỡng OOD 0.06 | page_oncall được chấp nhận | ✓ |
 
-The engine would also break on any cascade incident where the corpus *does* contain a close neighbor (high similarity) but the similarity was driven by the alerting service's logs, not the actual root-cause service's signals. In that scenario the engine would confidently auto-act on the wrong service.
+Engine **không** escalate ở E01, E03, E05 - và cả ba trường hợp này đều không được phép escalate (`must_not_action: page_oncall` cho E01 và E03) hoặc auto-action là phương án đúng/chấp nhận được (E05 chọn rollback, là kết quả ưu tiên).
 
-### Why it is hard
-
-Topology-aware root cause localization requires graph propagation (e.g., PageRank over the weighted trace error graph, or Bayesian network inference over the service dependency graph). The corpus stores `affected_services` as a flat list — there is no ground-truth causal graph to train from.
-
-### Concrete fix not implemented (time constraint)
-
-**Trace-graph root localization pre-pass:** before computing similarity, run a single backward BFS over the trace edges ordered by (error_rate × p99_deviation). The node with the highest upstream anomaly score that has no further upstream anomalous edges is the candidate root. Replace `trigger_service` in the feature vector with this inferred root, then run similarity against the corpus using the *root* service, not the alerting service.
-
-This would have changed E08's feature vector to highlight `t24-service`, improved its similarity against any historical `replication_lag` or `db_drift` entries, and potentially surfaced `rollback_service:t24-service` as the top candidate with enough confidence to auto-act — matching the preferred ground-truth answer.
-
-Not implemented because: (1) the trace data in E08 has 240 records and the root-path inference requires careful handling of the `lag` keyword-as-metric-proxy pattern; (2) it would need validation against E06 to confirm it doesn't break the conflicting-evidence case; (3) time budget was exhausted after achieving 8/8 correct with the current design.
+**Quyết định thiết kế quan trọng:** `page_oncall` trong `actions.yaml` có `cost=0` và `blast_radius=0` - nếu làm ngây thơ, nó sẽ luôn tối đa hóa utility. Engine chặn điều đó bằng: (1) phạt ×0.35 trên phiếu của `page_oncall` ở Layer 2, và (2) các gate hard-escalation ở Layer 3 chỉ bật khi có bằng chứng dương cho việc cần escalate, chứ không phải chỉ vì thiếu bằng chứng để auto-action.
 
 ---
 
-## Optional A — Out-of-Distribution Detection
+## Câu 5 - Kiểu incident nào làm engine dễ hỏng nhất, và fix cụ thể là gì?
 
-The OOD check uses a single threshold on `best_similarity`:
+### Kiểu lỗi dễ hỏng nhất: cascade nhiều service nhưng root không phải service đang alert
+
+E08 là ví dụ rõ nhất. Alert bắn ở `bb-edge` (lá cuối), nhưng root thật là `t24-service` (nút sâu nhất, có drift `db_replica_lag`). Engine đúng khi escalate vì `best_similarity=0.021` chạm ngưỡng OOD - nhưng câu trả lời đúng *không chỉ là* "page ai đó"; đúng hơn phải là `rollback_service:t24-service`. Engine chưa có logic đi ngược đồ thị topology để lần từ trace lên upstream và nhận ra `t24-service` là root emitter.
+
+Engine cũng sẽ hỏng với bất kỳ incident cascade nào mà corpus **có** một láng giềng gần (similarity cao) nhưng similarity đó lại bị kéo bởi log của service đang alert, chứ không phải tín hiệu của root-cause service. Trong trường hợp đó, engine sẽ tự tin auto-act lên sai service.
+
+### Vì sao khó
+
+Xác định root cause dựa trên topology cần graph propagation (ví dụ PageRank trên đồ thị trace có trọng số lỗi, hoặc suy luận Bayesian trên service dependency graph). Corpus chỉ lưu `affected_services` như một danh sách phẳng - không có đồ thị nhân quả ground-truth để train trực tiếp.
+
+### Fix cụ thể nhưng chưa triển khai (do giới hạn thời gian)
+
+**Bước tiền xử lý xác định root trên trace graph:** trước khi tính similarity, chạy một backward BFS duy nhất trên các cạnh trace, sắp theo `(error_rate × p99_deviation)`. Node có điểm bất thường upstream cao nhất và không còn cạnh upstream bất thường nữa sẽ được xem là root candidate. Thay `trigger_service` trong feature vector bằng root suy ra này, rồi mới chạy similarity với corpus dùng *root* service, không phải service đang alert.
+
+Cách này sẽ làm feature vector của E08 nổi bật `t24-service`, cải thiện similarity với các entry lịch sử kiểu `replication_lag` hoặc `db_drift`, và có thể đẩy `rollback_service:t24-service` lên top candidate với đủ confidence để auto-act - khớp với đáp án ground-truth ưu tiên.
+
+Chưa triển khai vì: (1) dữ liệu trace của E08 có 240 record và suy luận đường root cần xử lý cẩn thận mẫu `lag` như metric proxy; (2) cần kiểm tra thêm trên E06 để chắc chắn không phá case tín hiệu mâu thuẫn; (3) hết ngân sách thời gian sau khi đã đạt 8/8 đúng với thiết kế hiện tại.
+
+---
+
+## Phụ lục A - Phát hiện ngoài phân phối
+
+Kiểm tra OOD dùng một ngưỡng duy nhất trên `best_similarity`:
 
 ```python
 if best_similarity < 0.06:
     → escalate_ood
 ```
 
-**Threshold derivation:**
-- E08 (true OOD, cascade): best_similarity = 0.021
-- E04 (DNS, novel service): best_similarity = 0.023
-- E03 (memory on `esb`, semi-novel): best_similarity = 0.023
-- E07 (informer/throttle — actually has a good match): best_similarity = 0.417
+**Cách suy ra ngưỡng:**
+- E08 (OOD thật, cascade): `best_similarity = 0.021`
+- E04 (DNS, service mới): `best_similarity = 0.023`
+- E03 (memory trên `esb`, semi-novel): `best_similarity = 0.023`
+- E07 (informer/throttle - thực ra có match tốt): `best_similarity = 0.417`
 
-E03 has best_similarity=0.023, below the threshold — but the engine correctly fires *before* the OOD check via the `memory_restart` keyword gate (heap=250 hits, gc_pause=125 hits). The OOD gate is a fallback; domain-specific keyword gates preempt it for known signal types.
+E03 có `best_similarity=0.023`, thấp hơn ngưỡng - nhưng engine đã bắt đầu từ trước đó qua gate `memory_restart` dựa trên keyword (heap=250, gc_pause=125). Gate OOD chỉ là phương án dự phòng; các gate theo domain sẽ ưu tiên cao hơn cho tín hiệu đã biết.
 
-**Risk of threshold=0.06:**
-- Too tight: an incident that is 10% similar to history (e.g., same service, different root cause) would escalate when it should act. Observed: none in eval set.
-- Too loose: an incident at similarity=0.07 with a bad candidate action would auto-act incorrectly. Mitigated by the `p_success < 0.25` gate in Layer 3 — even if OOD is not triggered, a weak vote mass still escalates.
+**Rủi ro với ngưỡng 0.06:**
+- Quá chặt: một incident giống lịch sử khoảng 10% (ví dụ cùng service nhưng root khác) sẽ bị escalate trong khi lẽ ra nên hành động. Quan sát trong tập eval: không có case nào như vậy.
+- Quá lỏng: một incident có similarity=0.07 nhưng action ứng viên tệ sẽ auto-act sai. Rủi ro này được giảm nhờ gate `p_success < 0.25` ở Layer 3 - ngay cả khi OOD không kích hoạt, vote mass yếu vẫn sẽ bị escalate.
 
-## Optional B — Justification Chain
+## Phụ lục B - Chuỗi chứng minh
 
-Each `audit.jsonl` entry includes a structured `evidence` block containing:
-- `feature_summary`: top log keywords with counts, top metric anomalies by z-score deviation, log/trace/metric counts
-- `retrieval.top_matches`: for each of the 5 neighbors — history ID, similarity score, outcome, root_cause_class, and all actions that neighbor contributed
-- `retrieval.evidence`: per-vote breakdown showing exactly how each neighbor contributed each action vote (sim × rank_w × outcome_w × page_penalty)
-- `decision`: the decision path taken (e.g., `escalate_tls`, `auto_act`, `escalate_ood`), p_success, utility score, blast gate status
+Mỗi entry `audit.jsonl` chứa một khối `evidence` có cấu trúc gồm:
+- `feature_summary`: top keyword log theo số lần xuất hiện, các anomaly metric top theo z-score deviation, số lượng log/trace/metric
+- `retrieval.top_matches`: cho từng 5 láng giềng - history ID, similarity score, outcome, root_cause_class, và toàn bộ action mà láng giềng đó góp phiếu
+- `retrieval.evidence`: breakdown theo từng phiếu, cho biết chính xác mỗi láng giềng đóng góp bao nhiêu cho từng action (`sim × rank_w × outcome_w × page_penalty`)
+- `decision`: luồng quyết định đã đi qua (ví dụ `escalate_tls`, `auto_act`, `escalate_ood`), `p_success`, điểm utility, trạng thái gate blast
 
-**What was omitted:** raw log lines (too verbose, 500 per incident), full metric time series (adds no audit value), topology edge list. A reviewer can reconstruct the decision from vote weights alone without needing to re-read 500 log lines.
-
-
-## Optional C — Confidence Calibration
-
-### Setup
-
-`calibration.py` reads `audit.jsonl` (8 entries) and `eval/expected.json`, computes hit (1 = selected action ∈ accepted_actions, 0 = not), then measures ECE and fits Platt scaling.
-
-### Raw results
-
-| Incident | Predicted confidence | Hit |
-|----------|---------------------|-----|
-| E01 | 0.5911 | 1 |
-| E02 | 0.4151 | 1 |
-| E03 | 0.4612 | 1 |
-| E04 | 0.2614 | 1 |
-| E05 | 0.6334 | 1 |
-| E06 | 0.2976 | 1 |
-| E07 | 0.4587 | 1 |
-| E08 | 0.1800 | 1 |
-
-All 8 hits = 1.0 actual accuracy.
-
-### Reliability diagram (before calibration)
-
-| Bin | n | Mean predicted | Actual hit rate | Gap |
-|-----|---|---------------|-----------------|-----|
-| [0.00, 0.25) | 1 | 0.180 | 1.000 | +0.820 (under-confident) |
-| [0.25, 0.50) | 5 | 0.379 | 1.000 | +0.621 (under-confident) |
-| [0.50, 0.75) | 2 | 0.612 | 1.000 | +0.388 (under-confident) |
-
-**ECE before calibration: 0.5877** — very high, engine is systematically under-confident across all bins.
-
-### Where the engine is over- or under-confident
-
-The engine is **strictly under-confident** in all three populated bins. The worst case is E08 (confidence=0.18, actual=correct): the OOD escalation path hard-codes confidence=0.18 regardless of what the evidence says, because the design intent is "low similarity → low confidence → human reviews." In reality the escalation was correct, so 0.18 was far too low.
-
-The root cause of under-confidence is the confidence formula:
-```python
-confidence = 0.45 + 0.4 * best_similarity + 0.1 * p_success + 0.05 * gap
-```
-`best_similarity` rarely exceeds 0.35 on this corpus, so the formula is anchored low by design. The OOD and keyword-gate paths use even lower hard-coded floors (0.18, 0.25).
-
-### Platt scaling calibration
-
-Fitted sigmoid: `P(correct) = 1 / (1 + exp(-(A×s + B)))`
-
-```
-A = 3.1539,  B = 5.8278
-```
-
-| Incident | Raw | Calibrated |
-|----------|-----|-----------|
-| E01 | 0.5911 | 0.9995 |
-| E02 | 0.4151 | 0.9992 |
-| E03 | 0.4612 | 0.9993 |
-| E04 | 0.2614 | 0.9987 |
-| E05 | 0.6334 | 0.9996 |
-| E06 | 0.2976 | 0.9988 |
-| E07 | 0.4587 | 0.9993 |
-| E08 | 0.1800 | 0.9983 |
-
-**ECE after calibration: 0.0009** — near-perfect.
-
-### Why calibrated output is ~0.999 for all incidents
-
-With 8/8 correct, the optimal Platt sigmoid pushes all scores toward 1.0. The large B=5.8278 intercept reflects the fact that even the lowest raw score (0.18) corresponds to a correct prediction — so the sigmoid shifts the entire distribution into the high-confidence region. This is mathematically correct given the evidence but should not be interpreted as "the engine is always 99.9% right." The eval set is small (8 incidents) and all happened to be correct.
-
-### Honest assessment of the mitigation
-
-Platt scaling on 8 samples is **overfit by construction**. The calibrated scores are not trustworthy as out-of-sample probabilities. The correct mitigation for production would be:
-
-1. Run the engine on a held-out set of ≥50 labeled incidents.
-2. Fit Platt on 80% of those, validate ECE on the remaining 20%.
-3. Only deploy the calibrated confidence if out-of-sample ECE < 0.15.
-
-Within this lab's time budget, the calibration demonstrates the *methodology* correctly — the ECE drop from 0.5877 → 0.0009 shows the engine's raw heuristic confidence is a poor probability estimate, and sigmoid recalibration is the right tool to fix it.
+**Phần bị lược bỏ:** raw log lines (quá dài, 500 dòng mỗi incident), full metric time series (không tăng giá trị audit), và danh sách cạnh topology. Người đọc vẫn có thể tái dựng quyết định từ trọng số vote mà không cần đọc lại 500 dòng log.
