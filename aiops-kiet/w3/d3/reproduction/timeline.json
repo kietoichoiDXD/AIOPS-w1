@@ -1,0 +1,107 @@
+[
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "connect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "start aws_s3_2017-placement-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "connect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "connect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "start aws_s3_2017-index-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:25+00:00",
+    "source": "docker",
+    "event": "start aws_s3_2017-billing-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:30+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-placement-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:30+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-billing-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:30+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-index-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:31+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-placement-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:31+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-index-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:31+00:00",
+    "source": "docker",
+    "event": "kill aws_s3_2017-billing-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "disconnect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "stop aws_s3_2017-placement-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "die aws_s3_2017-placement-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "disconnect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "stop aws_s3_2017-billing-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "die aws_s3_2017-billing-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "disconnect aws_s3_2017_default"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "stop aws_s3_2017-index-1"
+  },
+  {
+    "ts": "2026-06-18T09:45:32+00:00",
+    "source": "docker",
+    "event": "die aws_s3_2017-index-1"
+  }
+]
