@@ -1,0 +1,3 @@
+# kiet - MLOps Lifecycle Lab
+
+Run the stack with `bash scripts/start_stack.sh`, generate the deterministic CSVs with `uv run python data/generate_data.py`, train the baseline model with `uv run python W3/mlops-lifecycle/pipeline.py --data data/baseline.csv`, start serving with `uv run python W3/mlops-lifecycle/serve.py`, and trigger retraining with `uv run python W3/mlops-lifecycle/retrain.py --reference data/baseline.csv --current data/drifted.csv --holdout data/holdout.csv --post-deploy-eval data/post_deploy_eval.csv` after setting `MLFLOW_TRACKING_URI=http://localhost:5000`.
