@@ -1,5 +1,5 @@
 
-Author: Kiet Tramn
+Author: kiet
 
 ## Câu 1: Drift threshold bạn chọn là bao nhiêu và tại sao?
 

@@ -1,5 +1,5 @@
 
-Author: Kiet Tramn
+Author: kiet
 
 ## Tổng quan
 
