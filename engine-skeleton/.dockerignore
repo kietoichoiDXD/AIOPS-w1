@@ -1,0 +1,12 @@
+# FinOps Watch AI Engine — .dockerignore
+__pycache__
+*.pyc
+*.pyo
+.git
+.gitignore
+.env
+.env.example
+tests/
+*.md
+.vscode/
+.idea/
