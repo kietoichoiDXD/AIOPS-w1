@@ -792,12 +792,3 @@ Mọi signal payload phải comply các quy tắc sau:
 
 ---
 
-## Related Documents
-
-- ai-api-contract.md — 5 API endpoints specification, Idempotency rules, Response schema.
-- deployment-contract.md — ECS Fargate compute, Networking, Secrets, Circuit Breaker.
-- docs/01_requirements.md — Success criteria, hard constraints, retention requirements.
-- docs/02_solution_design.md — Architecture overview, component breakdown, data flow.
-- docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
-- docs/04_eval_report.md — Backtest results, failure analysis, curveball impact.
-- docs/05_adrs.md — Architecture Decision Records (ADR-001 to ADR-005).
