@@ -258,7 +258,7 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
     },
     "s3_bucket_uri": {
       "type": "string",
-      "pattern": "^s3://[a-z0-9\\-]+/.+\\.json\\.gz$",
+      "pattern": "^s3://[a-z0-9\-]+/.+\.json\.gz$",
       "description": "URI S3 file CUR nén — bắt buộc khi S3_POINTER"
     },
     "resource_utilization_metrics": {
