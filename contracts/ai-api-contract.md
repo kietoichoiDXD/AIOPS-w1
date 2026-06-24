@@ -1244,15 +1244,3 @@ sequenceDiagram
 
 ---
 
-## 10. Tài liệu liên quan
-
-| Tài liệu | Mô tả |
-|---|---|
-| `contracts/telemetry-contract.md` | Schema chi tiết của CUR 2.0 và CE API signals |
-| `contracts/deployment-contract.md` | ECS Fargate compute, IAM Boundaries, Network config |
-| `docs/01_requirements.md` | Success criteria, hard constraints từ client |
-| `docs/02_solution_design.md` | Architecture overview, component breakdown |
-| `docs/03_ai_engine_spec.md` | Model governance, Bedrock Guardrails |
-| `docs/05_adrs.md` | ADR-001 (Cadence), ADR-002 (SigV4), ADR-003 (DynamoDB Cache), ADR-004 (SLO Lock) |
-
----
