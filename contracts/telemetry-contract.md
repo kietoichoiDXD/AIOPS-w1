@@ -4,7 +4,8 @@
      Signed by: AI Lead + CDO Leads × 2 (CDO-01, CDO-02) + Reviewer panel
      Date signed: 2026-06-25 (W11 T5)
      🔒 FREEZE — no change without formal Change Request
-     Cross-ref: ai-api-contract.md v1.2.0 · deployment-contract.md v1.2.0 · docs/02_solution_design.md -->
+     Word target: 2000-3000 từ (Contract tier)
+     Cross-ref: ai-api-contract.md · deployment-contract.md · docs/02_solution_design.md -->
 
 ---
 
@@ -19,7 +20,7 @@ Hợp đồng này định nghĩa **các tín hiệu (signals) dữ liệu chi p
 | # | Anomaly Type | Tín hiệu chính |
 |---|---|---|
 | 1 | `runaway_usage` | Compute chạy 24/7, `usage_density_24h ≈ 1.0`, không giảm cuối tuần |
-| 2 | `idle_resource` | Cost đều đặn, `cpu_utilization_hourly` có chuỗi < 5% liên tục > 72h (AI Engine tính) |
+| 2 | `idle_resource` | Cost đều đặn, `CPUUtilization ≈ 0%`, `DatabaseConnections ≈ 0` |
 | 3 | `untagged_spend` | `resource_tags_user_team` rỗng, cost lớn |
 | 4 | `sudden_spike` | Cost nhảy bậc thang, `cost_ratio_to_7d_avg > 3.0` |
 | 5 | `gradual_drift` | Trend tăng chậm nhiều tuần, chỉ visible trên `rolling_30d_avg` |
@@ -32,8 +33,8 @@ Hợp đồng này định nghĩa **các tín hiệu (signals) dữ liệu chi p
 
 | Rule | Value |
 |---|---|
-| **Schema version** | `3.1.0` |
-| **Schema URL** | `telemetry://finops-watch/v3.1` |
+| **Schema version** | `3.0.0` |
+| **Schema URL** | `telemetry://finops-watch/v3` |
 | **Backward compatible** | `true` — CDO upgrade pipeline trước AI — OK |
 | **Deprecation window** | 30 ngày hỗ trợ version cũ song song |
 | **Action on expiry** | `reject_request` — Từ chối payload version cũ sau grace period |
@@ -197,25 +198,20 @@ Giải quyết giới hạn **10MB** của API Gateway/ALB. Khớp với `data_s
 
 ---
 
-## 6. Signal 1: `aws_cost_explorer_daily` — Macro Layer (Trends / Fallback)
+## 6. Signal 1: `aws_cost_explorer_daily` — Macro Layer (Trends)
 
 Dữ liệu tổng hợp vĩ mô. Map trực tiếp với schema cost_explorer_daily.csv trong dataset TF2.
-
-> [!IMPORTANT]
-> **v3.1.0 — Đồng bộ ai-api-contract.md v1.2.0 (CDO-P5):**
-> `aws_cost_explorer_daily` **không còn bắt buộc mỗi batch**. CDO chỉ PULL và gửi CE khi `telemetry_delay_event = true` (CUR chưa finalized, delay > 36h). Khi CUR pipeline sẵn sàng, `aws_cur_line_items` là nguồn sự thật duy nhất — CE daily là subset aggregate không bổ sung thông tin mới.
 
 | Attribute | Value |
 |---|---|
 | **Type** | Tabular aggregate (daily grain) |
-| **Frequency** | **Conditional** — chỉ PULL khi `telemetry_delay_event = true`; ngược lại skip CE API |
-| **Emit point** | CDO gọi `aws ce get-cost-and-usage` → normalize → đóng gói JSON (fallback mode) |
+| **Frequency** | PULL 1 lần/ngày lúc 02:00 AM (EventBridge cron) |
+| **Emit point** | CDO gọi `aws ce get-cost-and-usage` → normalize → đóng gói JSON |
 | **Retention** | 7 ngày hot (S3 cache), 30 ngày cold (S3) |
-| **Used for** | Fallback trend detection khi CUR delay; baseline calculation khi thiếu CUR |
+| **Used for** | Trend detection, account-level anomaly, baseline calculation |
 | **Emit SLA** | p99 < 60s từ CE API response → AI consumable |
 | **Volume SLA** | ~100-500 records/batch (6 accounts × ~20 services × 1 day) |
-| **Cost estimate** | $0.01/request × 2 requests/day = $0.60/month (chỉ khi fallback active) |
-| **API mapping** | `DetectResponse.data_confidence = LOW` khi batch dùng CE fallback |
+| **Cost estimate** | $0.01/request × 2 requests/day = $0.60/month |
 
 ### 6.1 JSON Schema — CDO PHẢI trả về đúng format này
 
@@ -385,11 +381,7 @@ WHERE bill_billing_period_start_date = DATE_FORMAT(CURRENT_DATE, '%Y-%m-01 00:00
 
 ## 8. Signal 3: `resource_utilization_metrics` — CloudWatch Layer
 
-Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect được nếu thiếu (CUR-only mode) nhưng `confidence *= 0.5`.
-
-> [!IMPORTANT]
-> **v3.1.0 — Đồng bộ ai-api-contract.md v1.2.0 (CDO-P4):**
-> CDO **không còn** tính `idle_hours_continuous`. Gửi `cpu_utilization_hourly` (mảng 24 phần tử). AI Engine tự tính chuỗi idle.
+Tín hiệu hiệu năng vật lý. **Bắt buộc** để phát hiện `idle_resource` (cost cao + utilization thấp) và `runaway_usage` (cost cao + utilization cao liên tục).
 
 | Attribute | Value |
 |---|---|
@@ -404,7 +396,7 @@ Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect đư
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ResourceUtilizationMetrics",
-  "description": "v3.1.0: CDO gửi cpu_utilization_hourly thô; AI Engine tính idle_hours_continuous",
+  "description": "CDO tổng hợp CloudWatch metrics theo resource_id → aggregate 24h → gửi kèm CUR data. Nếu thiếu → AI Engine chạy CUR-only mode",
   "type": "object",
   "properties": {
     "resource_id": {
@@ -416,13 +408,6 @@ Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect đư
       "minimum": 0,
       "maximum": 100,
       "description": "CPUUtilization avg 24h (EC2/RDS/ECS)"
-    },
-    "cpu_utilization_hourly": {
-      "type": "array",
-      "description": "Mảng 24 phần tử — CPU% trung bình theo giờ UTC (index 0 = 00:00)",
-      "items": { "type": "number", "minimum": 0, "maximum": 100 },
-      "minItems": 24,
-      "maxItems": 24
     },
     "memory_mib": {
       "type": "number",
@@ -454,13 +439,16 @@ Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect đư
       "minimum": 0,
       "maximum": 100,
       "description": "GPU Core usage % (SageMaker ml-research). null nếu không có GPU"
+    },
+    "idle_hours_continuous": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Số giờ liên tục utilization < 5%. CDO tự tính từ CloudWatch 1h-period data"
     }
   },
-  "required": ["resource_id", "cpu_percent", "cpu_utilization_hourly", "network_in_bytes", "network_out_bytes"]
+  "required": ["resource_id", "cpu_percent", "network_in_bytes", "network_out_bytes"]
 }
 ```
-
-> **DEPRECATED v3.1.0:** Trường `idle_hours_continuous` đã bị loại khỏi contract. AI Engine tính từ `cpu_utilization_hourly` theo quy tắc: chuỗi con liên tục có giá trị < 5% kéo dài > 72h → signal `idle_resource`.
 
 > **WHY fallback khi mất CloudWatch**: Reliability principle — CUR data là "đủ" để detect, CloudWatch chỉ "tăng confidence". Không block detection vì thiếu metric phụ (reference: 02_solution_design.md §5 Risk mitigation).
 
@@ -550,50 +538,22 @@ Logic: `cost ↑ + traffic ↑ = normal growth` | `cost ↑ + traffic flat = ano
 
 ## 12. Time Integrity Contract
 
-Bảo vệ quan hệ nhân quả (causality) trong hệ thống phân tán. **v3.1.0 tách hai lớp kiểm tra thời gian** — khớp ai-api-contract.md §3.1.
-
-| Lớp | Trường kiểm tra | Ngưỡng | Hành vi khi vượt |
-|---|---|---|---|
-| **Request Timestamp** | `X-Request-Timestamp` (header API) | ≤ **300 giây** | Reject `400 ERR_REPLAY_DETECTED` |
-| **Data Timestamp** | `line_item_usage_start_date` (CUR payload) | ≤ **36 giờ** | Chấp nhận bình thường (CUR delay 8–24h là expected) |
-
-> [!WARNING]
-> **Breaking change từ v3.0.0:** Ngưỡng `max_allowed_skew_ms: 10000` (10 giây) trên `source_timestamp` vs `ingestion_timestamp` **đã bị loại bỏ**. Không reject batch CUR vì data age — chỉ reject request replay.
+Bảo vệ quan hệ nhân quả (causality) trong hệ thống phân tán. **Reject nếu clock skew > 10s**.
 
 ```json
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TimeIntegrity",
-  "description": "v3.1.0: Request replay protection (300s) tách khỏi CUR data latency (36h acceptable)",
+  "description": "AI Engine validate time integrity — reject nếu skew > 10s",
   "type": "object",
   "properties": {
-    "request_timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "X-Request-Timestamp từ CDO — reject nếu skew > 300s so với server clock"
-    },
-    "line_item_usage_start_date": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Thời điểm AWS ghi nhận usage — chấp nhận delay đến 36h"
-    },
-    "collector_timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Thời điểm CDO Collector thu thập (audit only, không reject)"
-    },
-    "ingestion_timestamp": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Thời điểm AI Engine nhận dữ liệu (AI tự gán)"
-    },
-    "data_age_hours": {
-      "type": "number",
-      "minimum": 0,
-      "description": "abs(ingestion - line_item_usage_start_date) in hours — informational"
-    }
+    "source_timestamp":    { "type": "string", "format": "date-time", "description": "Thời điểm AWS agent sinh dữ liệu" },
+    "collector_timestamp": { "type": "string", "format": "date-time", "description": "Thời điểm CDO Collector thu thập" },
+    "ingestion_timestamp": { "type": "string", "format": "date-time", "description": "Thời điểm AI Engine nhận dữ liệu (AI tự gán)" },
+    "clock_skew_ms":       { "type": "integer", "description": "abs(ingestion - source) in milliseconds" },
+    "max_allowed_skew_ms": { "type": "integer", "default": 10000, "description": "10 giây threshold" }
   },
-  "required": ["request_timestamp"]
+  "required": ["source_timestamp", "collector_timestamp"]
 }
 ```
 
@@ -617,14 +577,13 @@ AI Engine tự đánh giá dữ liệu trước khi ra quyết định. **Nếu 
     "freshness_score":         { "type": "number", "minimum": 0, "maximum": 1, "description": "1.0 - (data_age_hours / 24)" },
     "integrity_score":         { "type": "number", "minimum": 0, "maximum": 1, "description": "SHA256 checksum match rate" },
     "delay_score":             { "type": "number", "minimum": 0, "maximum": 1, "description": "Điểm phạt nếu CUR bị trễ > 12h" },
-    "is_forced_dry_run":       { "type": "boolean", "description": "Internal flag — map sang API response data_confidence: LOW khi true" },
-    "data_confidence":         { "type": "string", "enum": ["HIGH", "LOW"], "description": "HIGH = CUR đầy đủ; LOW = CE fallback hoặc forced dry-run (ai-api-contract.md §5.1)" }
+    "is_forced_dry_run":       { "type": "boolean", "description": "true nếu forced into DRY-RUN → map sang API response is_dry_run" }
   },
-  "required": ["completeness_score", "is_forced_dry_run", "data_confidence"]
+  "required": ["completeness_score", "is_forced_dry_run"]
 }
 ```
 
-> **WHY forced DRY-RUN**: Nếu AI Engine detect trên dữ liệu thiếu → sinh False Positive → trigger auto-containment sai → tắt resource production → outage. Forced dry-run là safety net (reference: 01_requirements.md §4 Constraints — NEVER terminate prod). AI Engine trả `data_confidence: LOW` trong `DetectResponse` để CDO biết kết quả ở chế độ degraded — **không dùng trường `is_dry_run` ở API layer** (v1.2.0).
+> **WHY forced DRY-RUN**: Nếu AI Engine detect trên dữ liệu thiếu → sinh False Positive → trigger auto-containment sai → tắt resource production → outage. Forced dry-run là safety net (reference: 01_requirements.md §4 Constraints — NEVER terminate prod). AI Engine sẽ trả về `is_dry_run: true` trong API response để thông báo trạng thái này cho CDO Platform.
 
 ---
 
@@ -713,8 +672,11 @@ AI Engine expose metrics qua `/metrics` endpoint (OpenTelemetry Prometheus expor
 # Tổng số request/phút theo endpoint
 rate(http_server_requests_total{service="ai-engine"}[5m])
 
-# P99 latency cho detection endpoint (phải < 300ms — sync detect v1.2.0)
+# P99 latency cho detection endpoint (phải < 30s)
 histogram_quantile(0.99, rate(http_server_request_duration_seconds_bucket{service="ai-engine", endpoint="/v1/detect"}[5m]))
+
+# P95 latency cho result query (phải < 10ms)
+histogram_quantile(0.95, rate(http_server_request_duration_seconds_bucket{service="ai-engine", endpoint="/v1/detect/result"}[5m]))
 ```
 
 ### 17.2 Error Rate & Availability
@@ -812,8 +774,7 @@ Mọi signal payload phải comply các quy tắc sau:
 
 | Kịch bản | Detection | Hành vi AI Engine |
 |---|---|---|
-| CUR trễ (chưa cập nhật S3) | CDO gửi `telemetry_delay_event = true` + CE daily fallback | `data_confidence: LOW`. Alert-only, không auto-contain. Kiểm tra lại mỗi 1h. |
-| CUR sẵn sàng (normal path) | `telemetry_delay_event = false` | CDO **không** pull CE API. Chỉ gửi `aws_cur_line_items`. `data_confidence: HIGH`. |
+| CUR trễ (chưa cập nhật S3) | CDO gửi `telemetry_delay_event = true` | Tạm hoãn batch. Kiểm tra lại mỗi 1h. Max 4 retries → alert P1. |
 | Mất CloudWatch Metrics | `cloudwatch_status: MISSING` | AI chạy CUR-only detection. `confidence *= 0.5`. Containment = Dry-run/Alert-only. |
 | Pipeline CDO sập hoàn toàn | Sau 26h không nhận dữ liệu | AI phát cảnh báo P1 đỏ tới Slack cả hai nhóm. |
 | Dữ liệu ước tính (`is_estimated`) | `is_estimated = true` | AI giảm `confidence_score`. Không kích hoạt auto-containment. |
@@ -833,8 +794,8 @@ Mọi signal payload phải comply các quy tắc sau:
 
 ## Related Documents
 
-- ai-api-contract.md v1.2.0 — 6 API endpoints, Idempotency rules, DetectResponse.data_confidence.
-- deployment-contract.md v1.2.0 — ECS Fargate compute, CDO IAM Boundaries, Rollback cache.
+- ai-api-contract.md — 5 API endpoints specification, Idempotency rules, Response schema.
+- deployment-contract.md — ECS Fargate compute, Networking, Secrets, Circuit Breaker.
 - docs/01_requirements.md — Success criteria, hard constraints, retention requirements.
 - docs/02_solution_design.md — Architecture overview, component breakdown, data flow.
 - docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
