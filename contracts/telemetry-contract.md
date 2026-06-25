@@ -4,7 +4,7 @@
      Signed by: AI Lead + CDO Leads × 2 (CDO-01, CDO-02) + Reviewer panel
      Date signed: 2026-06-25 (W11 T5)
      🔒 FREEZE — no change without formal Change Request
-     Cross-ref: ai-api-contract.md v1.2.0 · deployment-contract.md v1.2.0 · docs/02_solution_design.md -->
+     Cross-ref: ai-api-contract.md v1.4.0 · deployment-contract.md v1.3.0 · docs/02_solution_design.md -->
 
 ---
 
@@ -960,7 +960,7 @@ AI Engine expose metrics qua `/metrics` endpoint (OpenTelemetry Prometheus expor
 # Tổng số request/phút theo endpoint
 rate(http_server_requests_total{service="ai-engine"}[5m])
 
-# P99 latency cho detection endpoint (phải < 300ms — sync detect v1.2.0)
+# P99 latency cho detection endpoint (phải < 300ms — sync detect v1.4.0)
 histogram_quantile(0.99, rate(http_server_request_duration_seconds_bucket{service="ai-engine", endpoint="/v1/detect"}[5m]))
 ```
 
@@ -1080,8 +1080,8 @@ Mọi signal payload phải comply các quy tắc sau:
 
 ## Related Documents
 
-- ai-api-contract.md v1.2.0 — 6 API endpoints, Idempotency rules, DetectResponse.data_confidence.
-- deployment-contract.md v1.2.0 — ECS Fargate compute, CDO IAM Boundaries, Rollback cache.
+- ai-api-contract.md v1.4.0 — 6 API endpoints, Idempotency rules, DetectResponse.data_confidence.
+- deployment-contract.md v1.3.0 — ECS Fargate compute, CDO IAM Boundaries, Rollback cache.
 - docs/01_requirements.md — Success criteria, hard constraints, retention requirements.
 - docs/02_solution_design.md — Architecture overview, component breakdown, data flow.
 - docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
