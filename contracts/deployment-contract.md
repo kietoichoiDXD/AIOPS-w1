@@ -3,7 +3,12 @@
 <!-- Owner: Nhóm AI — TF2 FinOps Watch
      Signed by: AI Lead + CDO Lead (CDO-01) + CDO Lead (CDO-02) + Reviewer Panel
      Date signed: 2026-06-25 (W11 T5)
-     Version: v1.2.0 (đồng bộ ai-api-contract.md v1.2.0 + telemetry-contract.md v3.1.0)
+     Version: v1.3.0 (đồng bộ ai-api-contract.md v1.4.0 + telemetry-contract.md v3.2.0)
+     Changelog từ v1.2.0:
+       [D6] §Secrets — Thêm `DYNAMODB_IDEMPOTENCY_TABLE`, tách idempotency hot path khỏi S3
+       [D7] §Secrets — `S3_TELEMETRY_BUCKET` pattern `company-cdo-{account_id}-telemetry`
+       [D8] §CDO Rollback Cache — S3 path dùng account-scoped bucket
+       [D9] §Appendix C — DynamoDB Idempotency table spec + stale lock recovery
      Changelog từ v1.1.0:
        [D1] §6.2 — CDO IAM: thêm Service Quotas cho quota-cap (Appendix B)
        [D2] §6.3 — Khóa rate_limit_per_tenant: 100 req/min
@@ -47,7 +52,7 @@
 
 ## Key principle
 
-**Nhóm AI bàn giao engine dưới dạng artifact (Container Image đăng ký trên ECR) kèm bản spec triển khai này. MỖI CDO trong Task Force tự deploy engine lên platform riêng của mình** (ví dụ: CDO-01 dùng Serverless/ECS Fargate, CDO-02 dùng AWS App Runner / ECS Fargate... - mỗi CDO một góc tiếp cận kỹ thuật khác nhau và compete ở cách host, giám sát và tối ưu vận hành). 
+**. MỖI CDO trong Task Force tự deploy engine lên platform riêng của mình** (ví dụ: CDO-01 dùng Serverless/ECS Fargate, CDO-02 dùng AWS App Runner / ECS Fargate... - mỗi CDO một góc tiếp cận kỹ thuật khác nhau và compete ở cách host, giám sát và tối ưu vận hành). 
 
 Các thông số kỹ thuật bên dưới là **spec tham chiếu tối thiểu CDO phải đáp ứng** (CDO Fargate/App Runner map sang ECS Task / App Runner instance / Lambda - miễn là năng lực xử lý tương đương). Mỗi CDO sở hữu **endpoint riêng**, mỗi instance được cách ly dữ liệu multi-tenant hoàn toàn dựa trên `tenant_id`.
 
@@ -94,7 +99,10 @@ Quản lý thông tin nhạy cảm tập trung, cấm hardcode credentials trong
 |---|---|---|
 | `BEDROCK_API_KEY` | AWS Secrets Manager: `tf-2/ai-engine/bedrock` | API Key sơ cua (hoặc Token) nếu gọi qua API Gateway ngoài. Mặc định ưu tiên IAM Role. |
 | `AWS_REGION` | Environment Variable | Thiết lập mặc định: `ap-southeast-1` (Singapore) |
-| `S3_TELEMETRY_BUCKET` | Environment Variable | Tên S3 bucket lưu trữ idempotency, audit logs, và features |
+| `S3_TELEMETRY_BUCKET` | Environment Variable | Pattern: `company-cdo-{account_id}-telemetry` — CUR, features, audit backup |
+| `S3_CDO_NAMESPACE` | Environment Variable | `cdo-01` hoặc `cdo-02` khi nhiều CDO dùng chung account |
+| `DYNAMODB_IDEMPOTENCY_TABLE` | Environment Variable | `finops-idempotency-{env}` — hot path idempotency (TTL 24h) |
+| `DYNAMODB_FEATURE_STORE_TABLE` | Environment Variable | `finops-feature-store-{env}` — rolling stats (thay S3 list/get cho prod) |
 
 > 🔒 **Quy tắc an toàn mạng:** Tuyệt đối không sử dụng IAM User static access key. Toàn bộ hạ tầng của CDO phải gán IAM Task Execution Role có gắn Policy cho phép truy cập Bedrock và Secrets Manager. Secrets Manager rotation policy được thiết lập tự động xoay vòng mỗi 30 ngày.
 
@@ -280,7 +288,7 @@ Khóa cứng đồng bộ với ai-api-contract.md §3:
 
 | Thuộc tính | Giá trị |
 |---|---|
-| **Storage** | DynamoDB table `finops-rollback-cache` (CDO account) + S3 backup `s3://company-cdo-telemetry/rollback-cache/{anomaly_id}` |
+| **Storage** | DynamoDB table `finops-rollback-cache` (CDO account) + S3 backup `s3://company-cdo-{account_id}-telemetry/rollback-cache/{cdo_namespace}/{anomaly_id}` |
 | **TTL** | 90 ngày (khớp audit retention) |
 | **Write trigger** | Ngay khi nhận `DecideResponse` — cache `rollback_payload.boto3_equivalent` |
 | **Read trigger** | `next_action = ROLLBACK` hoặc engineer manual rollback |
@@ -385,6 +393,47 @@ Policy mẫu cho CDO Containment Worker Role. CDO customize per-account nhưng *
   ]
 }
 ```
+
+---
+
+## Appendix C: AI Engine DynamoDB Idempotency Table (v1.3.0)
+
+> **v3.2.0 telemetry-contract.md:** Idempotency hot path = DynamoDB, không phải S3.
+
+| Attribute | Value |
+|---|---|
+| **Table name** | `finops-idempotency-{env}` |
+| **Partition key** | `idempotency_key` (String) |
+| **Attributes** | `payload_sha256`, `status`, `response_cache`, `created_at`, `ttl_expiry` |
+| **TTL** | Attribute `ttl_expiry` (Number, Unix epoch) — auto-delete 24h |
+| **Billing** | On-demand (PAY_PER_REQUEST) — phù hợp batch 24h cadence |
+| **PITR** | Enabled (production) |
+
+**Write flow:**
+
+```
+1. PutItem ConditionExpression: attribute_not_exists(idempotency_key)
+   → status = IN_PROGRESS, ttl_expiry = now + 86400
+2. Process detect → UpdateItem status = COMPLETED, response_cache = DetectResponse JSON
+3. ConditionalCheckFailedException:
+   → GetItem → if COMPLETED + same sha256 → return cache
+   → if COMPLETED + different sha256 → 400 ERR_IDEMPOTENCY_MISMATCH
+   → if IN_PROGRESS + created_at < 5 min ago → 409 Conflict
+   → if IN_PROGRESS + created_at > 5 min ago → stale lock, allow re-process
+```
+
+**AI Engine IAM (minimum):**
+
+```json
+{
+  "Sid": "AllowIdempotencyRW",
+  "Effect": "Allow",
+  "Action": ["dynamodb:PutItem", "dynamodb:GetItem", "dynamodb:UpdateItem"],
+  "Resource": "arn:aws:dynamodb:ap-southeast-1:*:table/finops-idempotency-*"
+}
+```
+
+**Feature Store (production path):** Table `finops-feature-store-{env}` với PK=`resource_id`, SK=`date`. S3 feature path chỉ dùng capstone/backtest fallback.
 
 ---
 

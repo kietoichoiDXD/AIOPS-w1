@@ -3,7 +3,12 @@
 <!-- Owner: Nhóm AI — TF2 FinOps Watch
      Signed by: AI Lead + CDO Lead (CDO-01) + CDO Lead (CDO-02) + Reviewer Panel
      Date signed: 2026-06-25 (W11 T5)
-     Version: v1.3.0
+     Version: v1.4.0
+     Changelog từ v1.3.0 (CR-v3.2 — Production Hardening 2026-06-25):
+       [P13] §3.2 — Idempotency hot path: DynamoDB conditional write + TTL (sync deployment-contract §Appendix C)
+       [P14] §3.4 — Bucket primary: `company-cdo-{account_id}-telemetry` (tf2-cdo deprecated)
+       [P15] §5.1 — CUR schema sync telemetry §7; business_context + CUR-CE mismatch fields
+       [P16] §5.1 — business_context.traffic_volume required (telemetry §11.2)
      Changelog từ v1.2.0:
        [P9]  §3.4 — S3 Bucket Naming Convention: Globally unique pattern `tf2-cdo{NN}-telemetry-{region}`
                → Fix xung đột `BucketAlreadyExists` khi CDO-01 và CDO-02 chạy IaC song song
@@ -153,7 +158,21 @@ Request bị reject chỉ khi **Request Timestamp** lệch > 300 giây. Data Tim
 
 ### 3.2 Quy tắc Idempotency chi tiết
 
-`X-Idempotency-Key` lưu tại S3 bucket `s3://company-cdo-telemetry/idempotency/` với 24-hour Object Lifecycle Expiry. Xử lý theo 3 trường hợp:
+> [!IMPORTANT]
+> **v3.2.0 (telemetry-contract.md):** Idempotency hot path dùng **DynamoDB conditional write + TTL 24h** thay vì S3 PutObject — latency ~5–15ms vs ~50–200ms, đáp ứng P99 `/v1/detect` < 300ms.
+
+`X-Idempotency-Key` lưu tại DynamoDB table `finops-idempotency-{env}`:
+
+| Attribute | Value |
+|---|---|
+| **Partition key** | `idempotency_key` |
+| **TTL** | `ttl_expiry` (Unix epoch, auto-delete 24h) |
+| **Write** | `ConditionExpression: attribute_not_exists(idempotency_key)` → status `IN_PROGRESS` |
+| **Complete** | Update `status = COMPLETED`, cache `response_body` + `payload_sha256` |
+
+S3 path `s3://company-cdo-{account_id}-telemetry/idempotency/{cdo_namespace}/` chỉ dùng **audit trail** (optional), không phải hot path.
+
+Xử lý theo 3 trường hợp:
 
 | Trạng thái Key | Payload | Hành vi |
 |---|---|---|
@@ -184,28 +203,43 @@ Request bị reject chỉ khi **Request Timestamp** lệch > 300 giây. Data Tim
 > [!IMPORTANT]
 > **S3 Bucket Name là globally unique** trên toàn AWS. CDO-01 và CDO-02 chạy IaC song song sẽ gặp lỗi `BucketAlreadyExists` nếu không chuẩn hóa tên bucket.
 
-#### Convention bắt buộc
+#### Convention bắt buộc (v3.2.0)
+
+**Primary — per AWS account (globally unique):**
 
 ```
-s3://tf2-cdo{NN}-telemetry-{region}/
+s3://company-cdo-{account_id}-telemetry/
 ```
 
 | Placeholder | Giá trị | Ví dụ |
 |---|---|---|
-| `{NN}` | Số thứ tự CDO, 2 chữ số | `01`, `02` |
-| `{region}` | AWS Region code | `ap-southeast-1` |
+| `{account_id}` | 12-digit AWS account ID | `200000000010` |
 
 **Ví dụ bucket name hợp lệ:**
 
 ```
-CDO-01: s3://tf2-cdo01-telemetry-ap-southeast-1/
-CDO-02: s3://tf2-cdo02-telemetry-ap-southeast-1/
+CDO-01 (account 200000000010): s3://company-cdo-200000000010-telemetry/
+CDO-02 (account 200000000012): s3://company-cdo-200000000012-telemetry/
+```
+
+**Fallback — cùng account, nhiều CDO team:** dùng **namespace prefix** trong bucket chung:
+
+```
+s3://company-cdo-200000000010-telemetry/idempotency/cdo-01/
+s3://company-cdo-200000000010-telemetry/idempotency/cdo-02/
+s3://company-cdo-200000000010-telemetry/cur/cdo-01/{YYYY-MM-DD}.json.gz
+```
+
+**Legacy pattern (v1.3.0, deprecated):**
+
+```
+s3://tf2-cdo{NN}-telemetry-{region}/   ← chỉ dùng nếu đã deploy trước v3.2.0
 ```
 
 **Regex validation (enforce trong JSON Schema tại `s3_bucket_uri`):**
 
 ```
-^s3://tf2-cdo[0-9]{2}-telemetry-[a-z0-9\\-]+/.+\\.json\\.gz$
+^s3://company-cdo-[0-9]{12}-telemetry/.+\\.json\\.gz$
 ```
 
 #### IAM Access Pattern — 2 mode triển khai
@@ -217,7 +251,7 @@ CDO-02: s3://tf2-cdo02-telemetry-ap-southeast-1/
 
 **Mode 1 (Default / per-CDO deploy):**
 
-- AI Engine IAM role chỉ cần quyền đọc đúng 1 bucket `tf2-cdo{NN}-telemetry-{region}`.
+- AI Engine IAM role chỉ cần quyền đọc đúng 1 bucket `company-cdo-{account_id}-telemetry`.
 - Blast radius nhỏ nhất, không cần wildcard.
 
 **Mode 2 (Shared skeleton / multi-CDO read): Option A — Wildcard IAM Policy (đơn giản cho capstone)**
@@ -231,8 +265,8 @@ CDO-02: s3://tf2-cdo02-telemetry-ap-southeast-1/
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:ListBucket"],
       "Resource": [
-        "arn:aws:s3:::tf2-cdo*-telemetry-*",
-        "arn:aws:s3:::tf2-cdo*-telemetry-*/*"
+        "arn:aws:s3:::company-cdo-*-telemetry",
+        "arn:aws:s3:::company-cdo-*-telemetry/*"
       ]
     }
   ]
@@ -306,10 +340,14 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
 | `data_source_type` | string (Enum) | ✓ | Kiểu nạp dữ liệu: `RAW_JSON` (gửi data trực tiếp ≤10MB) hoặc `S3_POINTER` (gửi URI S3) |
 | `is_ad_hoc` | boolean | optional | `true` = quét khẩn cấp ngoài lịch, bỏ qua idempotency. Mặc định: `false` |
 | `telemetry_delay_event` | boolean | optional | `true` = CUR chưa finalized (delay > 36h), CDO fallback sang CE. AI Engine sẽ hạ confidence xuống `alert-only`. Mặc định: `false` |
+| `missing_resources` | array (of string) | **conditional** | **Bắt buộc khi `telemetry_delay_event = true`**. `line_item_product_code` có trong CE nhưng chưa có trong CUR |
+| `current_ce_cost_gap_usd` | number | **conditional** | **Bắt buộc khi `telemetry_delay_event = true`**. Tổng USD gap của `missing_resources` |
+| `comparison_window` | object | **conditional** | **Bắt buộc khi `telemetry_delay_event = true`**. `{start_date, end_date}` — xem telemetry-contract.md §6.2 |
 | `callback_url` | string (HTTPS URL) | optional | **[v1.3.0]** Nếu có, AI Engine sẽ POST bản sao `DetectResponse` về URL này sau khi xử lý xong (bổ sung luồng sync, không thay thế). Xem §5.7 |
-| `aws_cost_explorer_daily` | array (of objects) | **conditional** | **Bắt buộc chỉ khi `telemetry_delay_event = true`**. Dữ liệu CE API làm fallback khi CUR chưa về. Schema theo telemetry-contract.md §6 |
+| `aws_cost_explorer_daily` | array (of objects) | **conditional** | **Bắt buộc chỉ khi `telemetry_delay_event = true`**. 30-day CE fallback. Schema theo telemetry-contract.md §6 |
 | `aws_cur_line_items` | array (of objects) | conditional | Dữ liệu CUR resource-level — bắt buộc khi `data_source_type = RAW_JSON` và `telemetry_delay_event = false` |
-| `s3_bucket_uri` | string | conditional | URI S3 file CUR nén — bắt buộc khi `data_source_type = S3_POINTER`. **[v1.3.0] Pattern bắt buộc: `tf2-cdo{NN}-telemetry-{region}` — xem §3.4** |
+| `s3_bucket_uri` | string | conditional | URI S3 file CUR nén — bắt buộc khi `data_source_type = S3_POINTER`. Pattern: `company-cdo-{account_id}-telemetry` — xem §3.4 |
+| `business_context` | object | ✓ | **Bắt buộc mỗi batch**. `linked_account_id` + `traffic_volume` + `traffic_source` — xem telemetry-contract.md §11.2 |
 | `resource_utilization_metrics` | array (of objects) | optional | Dữ liệu hiệu năng CloudWatch. **v1.2.0: Gửi `cpu_utilization_hourly` thay vì `idle_hours_continuous`** |
 
 **Lược đồ Schema Yêu cầu**:
@@ -334,6 +372,24 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
       "default": false,
       "description": "true nếu CUR chưa finalized (delay > 36h) — AI Engine giảm confidence, chỉ alert-only"
     },
+    "missing_resources": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Bắt buộc khi telemetry_delay_event=true. service_code có trong CE nhưng chưa có trong CUR"
+    },
+    "current_ce_cost_gap_usd": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Bắt buộc khi telemetry_delay_event=true. Tổng USD gap của missing_resources"
+    },
+    "comparison_window": {
+      "type": "object",
+      "properties": {
+        "start_date": { "type": "string", "format": "date" },
+        "end_date":   { "type": "string", "format": "date" }
+      },
+      "required": ["start_date", "end_date"]
+    },
     "callback_url": {
       "type": "string",
       "format": "uri",
@@ -351,14 +407,11 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
           "linked_account_name":    { "type": "string" },
           "service_code":           { "type": "string", "description": "e.g. AmazonEC2, AmazonRDS" },
           "service":                { "type": "string", "description": "Tên hiển thị CE" },
-          "region":                 { "type": "string" },
+          "region":                 { "type": ["string", "null"], "description": "null hoặc 'global' cho global services" },
           "unblended_cost":         { "type": "number", "minimum": 0 },
-          "cost_ratio_to_7d_avg":   { "type": "number", "minimum": 0 },
-          "day_of_week":            { "type": "integer", "minimum": 0, "maximum": 6 },
-          "is_weekend":             { "type": "boolean" },
-          "is_estimated":           { "type": "boolean" }
+          "is_estimated":           { "type": "boolean", "description": "Map trực tiếp từ CE Estimated field" }
         },
-        "required": ["date", "linked_account_id", "service_code", "service", "region", "unblended_cost", "cost_ratio_to_7d_avg", "day_of_week", "is_weekend", "is_estimated"]
+        "required": ["date", "linked_account_id", "linked_account_name", "service_code", "service", "unblended_cost", "is_estimated"]
       }
     },
     "aws_cur_line_items": {
@@ -368,18 +421,24 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
         "type": "object",
         "properties": {
           "bill_billing_period_start_date":    { "type": "string", "format": "date-time" },
+          "bill_payer_account_id":             { "type": "string", "pattern": "^[0-9]{12}$" },
           "line_item_usage_start_date":        { "type": "string", "format": "date-time" },
           "line_item_usage_end_date":          { "type": "string", "format": "date-time" },
           "line_item_usage_account_id":        { "type": "string", "pattern": "^[0-9]{12}$" },
           "line_item_usage_account_name":      { "type": "string" },
+          "line_item_line_item_type":          { "type": "string" },
           "line_item_product_code":            { "type": "string" },
           "line_item_usage_type":              { "type": "string" },
           "line_item_operation":               { "type": "string" },
-          "line_item_resource_id":             { "type": "string" },
+          "line_item_resource_id":             { "type": ["string", "null"] },
           "line_item_usage_amount":            { "type": "number", "minimum": 0 },
           "pricing_unit":                      { "type": "string" },
           "line_item_unblended_rate":          { "type": "number", "minimum": 0 },
           "line_item_unblended_cost":          { "type": "number", "minimum": 0 },
+          "line_item_currency_code":           { "type": "string", "default": "USD" },
+          "product_product_name":              { "type": "string" },
+          "product_region_code":               { "type": ["string", "null"] },
+          "product_instance_type":             { "type": ["string", "null"] },
           "usage_density_24h":                 { "type": "number", "minimum": 0, "maximum": 1 },
           "resource_tags_user_environment":    { "type": "string", "enum": ["prod", "prod-core", "prod-payments", "staging", "dev", "sandbox", "ml-research", "data-analytics"] },
           "resource_tags_user_team":           { "type": ["string", "null"] },
@@ -389,16 +448,30 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
         "required": [
           "line_item_usage_start_date", "line_item_usage_account_id",
           "line_item_product_code", "line_item_usage_type",
-          "line_item_resource_id", "line_item_usage_amount",
-          "pricing_unit", "line_item_unblended_cost",
-          "usage_density_24h", "resource_tags_user_environment"
+          "line_item_usage_amount", "pricing_unit", "line_item_unblended_cost",
+          "resource_tags_user_environment"
         ]
       }
     },
     "s3_bucket_uri": {
       "type": "string",
-      "pattern": "^s3://tf2-cdo[0-9]{2}-telemetry-[a-z0-9\\-]+/.+\\.json\\.gz$",
-      "description": "[v1.3.0] URI S3 file CUR nén — bắt buộc khi S3_POINTER. Pattern đảm bảo globally unique theo §3.4"
+      "pattern": "^s3://company-cdo-[0-9]{12}-telemetry/.+\\.json\\.gz$",
+      "description": "URI S3 file CUR nén — bắt buộc khi S3_POINTER. Pattern: company-cdo-{account_id}-telemetry"
+    },
+    "business_context": {
+      "type": "object",
+      "description": "Bắt buộc mỗi batch. Schema theo telemetry-contract.md §11 + §11.2",
+      "properties": {
+        "linked_account_id": { "type": "string", "pattern": "^[0-9]{12}$", "description": "Account scope cho traffic_volume" },
+        "traffic_volume":   { "type": "number", "minimum": 0 },
+        "traffic_source":   { "type": "string", "enum": ["ALB", "CloudFront", "ApiGateway", "Synthetic", "Mixed"] },
+        "active_users":     { "type": "integer", "minimum": 0 },
+        "orders_count":     { "type": "integer", "minimum": 0 },
+        "campaign_flag":    { "type": "boolean" },
+        "load_test_flag":   { "type": "boolean" },
+        "migration_flag":   { "type": "boolean" }
+      },
+      "required": ["linked_account_id", "traffic_volume", "traffic_source", "campaign_flag", "load_test_flag", "migration_flag"]
     },
     "resource_utilization_metrics": {
       "type": "array",
@@ -422,22 +495,22 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
           "database_connections":     { "type": ["integer", "null"], "minimum": 0 },
           "gpu_utilization":          { "type": ["number", "null"], "minimum": 0, "maximum": 100 }
         },
-        "required": ["resource_id", "cpu_percent", "cpu_utilization_hourly", "network_in_bytes", "network_out_bytes"]
+        "required": ["resource_id"]
       }
     }
   },
-  "required": ["data_source_type"],
+  "required": ["data_source_type", "business_context"],
   "if": {
     "properties": { "telemetry_delay_event": { "const": true } }
   },
   "then": {
-    "required": ["data_source_type", "aws_cost_explorer_daily"],
+    "required": ["data_source_type", "business_context", "aws_cost_explorer_daily", "missing_resources", "current_ce_cost_gap_usd", "comparison_window"],
     "description": "Fallback CE mode: CUR chưa về, dùng CE daily"
   },
   "else": {
     "if": { "properties": { "data_source_type": { "const": "RAW_JSON" } } },
-    "then": { "required": ["data_source_type", "aws_cur_line_items"] },
-    "else": { "required": ["data_source_type", "s3_bucket_uri"] }
+    "then": { "required": ["data_source_type", "business_context", "aws_cur_line_items"] },
+    "else": { "required": ["data_source_type", "business_context", "s3_bucket_uri"] }
   },
   "additionalProperties": false
 }
@@ -450,6 +523,14 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
   "data_source_type": "RAW_JSON",
   "is_ad_hoc": false,
   "telemetry_delay_event": false,
+  "business_context": {
+    "linked_account_id": "200000000012",
+    "traffic_volume": 1250000,
+    "traffic_source": "ALB",
+    "campaign_flag": false,
+    "load_test_flag": false,
+    "migration_flag": false
+  },
   "aws_cur_line_items": [
     {
       "bill_billing_period_start_date": "2026-06-01T00:00:00Z",
@@ -495,6 +576,20 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
   "data_source_type": "RAW_JSON",
   "is_ad_hoc": false,
   "telemetry_delay_event": true,
+  "missing_resources": ["AmazonRDS", "AmazonDynamoDB"],
+  "current_ce_cost_gap_usd": 3550.0,
+  "comparison_window": {
+    "start_date": "2026-06-23",
+    "end_date": "2026-06-23"
+  },
+  "business_context": {
+    "linked_account_id": "200000000012",
+    "traffic_volume": 980000,
+    "traffic_source": "ALB",
+    "campaign_flag": false,
+    "load_test_flag": false,
+    "migration_flag": false
+  },
   "aws_cost_explorer_daily": [
     {
       "date": "2026-06-23",
@@ -504,9 +599,6 @@ Theo [Cross-Cutting Headers §4](#4-cross-cutting-headers) + `X-Dry-Run-Mode` b�
       "service": "Amazon Elastic Compute Cloud - Compute",
       "region": "ap-southeast-1",
       "unblended_cost": 427.50,
-      "cost_ratio_to_7d_avg": 18.2,
-      "day_of_week": 1,
-      "is_weekend": false,
       "is_estimated": true
     }
   ]
