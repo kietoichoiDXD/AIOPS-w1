@@ -549,7 +549,7 @@ WHERE bill_billing_period_start_date = DATE_FORMAT(CURRENT_DATE, '%Y-%m-01 00:00
 Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect được nếu thiếu (CUR-only mode) nhưng `confidence *= 0.5`.
 
 > [!IMPORTANT]
-> **v3.1.0 — Đồng bộ ai-api-contract.md v1.2.0 (CDO-P4):**
+> **v3.1.0 — Đồng bộ ai-api-contract.md v1.4.0 (CDO-P4):**
 > CDO **không còn** tính `idle_hours_continuous`. Gửi `cpu_utilization_hourly` (mảng 24 phần tử). AI Engine tự tính chuỗi idle.
 
 | Attribute | Value |
