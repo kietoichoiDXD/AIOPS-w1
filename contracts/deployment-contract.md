@@ -3,7 +3,12 @@
 <!-- Owner: Nhóm AI — TF2 FinOps Watch
      Signed by: AI Lead + CDO Lead (CDO-01) + CDO Lead (CDO-02) + Reviewer Panel
      Date signed: 2026-06-25 (W11 T5)
-     Version: v1.3.0 (đồng bộ ai-api-contract.md v1.4.0 + telemetry-contract.md v3.2.0)
+     Version: v1.4.0 (đồng bộ ai-api-contract.md v1.5.0 + telemetry-contract.md v3.2.0)
+     Changelog từ v1.3.0:
+       [D10] §Batch — Thêm mục "Kiến trúc Batch": EventBridge cron → Lambda → SFN → DLQ (max_retry=3, dead-letter alarm)
+       [D11] §Scaling — Xóa RPS autoscale trigger; min-tasks 2→1, max-tasks 10→3 (batch 1×/ngày không cần RPS scale)
+       [D12] §CDO Containment — Inline DenyContainmentOnProd IAM policy (xóa tham chiếu §4.3 lơ lửng)
+       [D13] §Networking — Ghi rõ ALB internal, batch pattern, không có traffic inbound liên tục
      Changelog từ v1.2.0:
        [D6] §Secrets — Thêm `DYNAMODB_IDEMPOTENCY_TABLE`, tách idempotency hot path khỏi S3
        [D7] §Secrets — `S3_TELEMETRY_BUCKET` pattern `company-cdo-{account_id}-telemetry`
@@ -23,24 +28,25 @@
 
 1. [Mục đích & Phạm vi](#mục-đích)
 2. [Nguyên tắc cốt lõi](#key-principle)
-3. [Đặc tả Compute](#compute)
-4. [Đặc tả Scaling](#scaling)
-5. [Quản lý Secrets & Credentials](#secrets)
-6. [Cấu hình Networking & An ninh mạng](#networking)
-7. [Deployment Topology Diagram](#deployment-topology-diagram)
-8. [Phân định Môi trường triển khai per-CDO](#per-cdo-deployment)
-9. [Chiến lược Rollout: Canary](#rollout-strategy-canary)
-10. [Cơ chế Rollback (Hoàn tác)](#rollback)
-11. [Health Check Specification](#health-check)
-12. [Observability & Tracing](#observability)
-13. [Failure Modes & Phản ứng Sự cố](#failure-modes--response)
-14. [CDO Containment & IAM Boundaries](#cdo-containment--iam-boundaries)
-15. [Rate Limiting](#rate-limiting)
-16. [Message Queues (SQS)](#message-queues-sqs)
-17. [CDO Rollback Cache](#cdo-rollback-cache)
-18. [Error Budget Lock — Phân tầng môi trường](#error-budget-lock)
-19. [Giải đáp các câu hỏi mở (Resolved Questions)](#resolved-questions)
-20. [Appendix B: CDO IAM Policy Mẫu](#appendix-b-cdo-iam-policy-mẫu)
+3. [Kiến trúc Batch (Scheduled)](#batch-architecture)
+4. [Đặc tả Compute](#compute)
+5. [Đặc tả Scaling](#scaling)
+6. [Quản lý Secrets & Credentials](#secrets)
+7. [Cấu hình Networking & An ninh mạng](#networking)
+8. [Deployment Topology Diagram](#deployment-topology-diagram)
+9. [Phân định Môi trường triển khai per-CDO](#per-cdo-deployment)
+10. [Chiến lược Rollout: Canary](#rollout-strategy-canary)
+11. [Cơ chế Rollback (Hoàn tác)](#rollback)
+12. [Health Check Specification](#health-check)
+13. [Observability & Tracing](#observability)
+14. [Failure Modes & Phản ứng Sự cố](#failure-modes--response)
+15. [CDO Containment & IAM Boundaries](#cdo-containment--iam-boundaries)
+16. [Rate Limiting](#rate-limiting)
+17. [Message Queues (SQS)](#message-queues-sqs)
+18. [CDO Rollback Cache](#cdo-rollback-cache)
+19. [Error Budget Lock — Phân tầng môi trường](#error-budget-lock)
+20. [Giải đáp các câu hỏi mở (Resolved Questions)](#resolved-questions)
+21. [Appendix B: CDO IAM Policy Mẫu](#appendix-b-cdo-iam-policy-mẫu)
 
 ---
 
@@ -57,6 +63,44 @@
 Các thông số kỹ thuật bên dưới là **spec tham chiếu tối thiểu CDO phải đáp ứng** (CDO Fargate/App Runner map sang ECS Task / App Runner instance / Lambda - miễn là năng lực xử lý tương đương). Mỗi CDO sở hữu **endpoint riêng**, mỗi instance được cách ly dữ liệu multi-tenant hoàn toàn dựa trên `tenant_id`.
 
 > 💡 **Cơ chế Bootstrap Tạm thời:** Trong ngày T5 W11 đến đầu W12, nhóm AI cung cấp **1 skeleton endpoint dùng chung** để CDO tích hợp trước code path (giao diện mock). W12 mỗi CDO bắt buộc phải deploy instance thật từ artifact của nhóm AI lên platform riêng của mình để đánh giá E2E.
+
+---
+
+## Batch Architecture
+
+> [!IMPORTANT]
+> **AI Engine là HTTP API nhẹ** — không phải long-running service với traffic RPS liên tục. CDO gọi 1×/ngày theo EventBridge cron. Pattern là **scheduled-batch**, không phải high-throughput web service.
+>
+> - Không có traffic inbound liên tục → **không dùng RPS autoscale**
+> - ALB Internal chỉ để định tuyến nội bộ — min-tasks=1 đủ cho batch 24h
+> - Lambda trigger **thoát ngay** sau khi khởi động Step Functions, không block HTTP call trong Lambda timeout
+
+### Luồng Batch Pipeline (CDO-side)
+
+| Thành phần | Mô tả | Config |
+|---|---|---|
+| **EventBridge Cron** | Kích hoạt pipeline 1×/ngày | `cron(0 2 * * ? *)` — 02:00 UTC |
+| **Lambda Trigger** | Start Step Functions rồi **thoát ngay** | Timeout 60s |
+| **Step Functions** | Orchestrate: materialize features → POST /v1/detect → POST /v1/decide → POST /v1/verify | Task timeout 5 phút per step |
+| **Retry policy** | max_receive_count=3; exponential backoff 30s → 60s → 120s | Per SFN task |
+| **SQS DLQ** | Nhận event khi pipeline thất bại sau 3 lần retry | `finops-watch-detect-dlq` |
+| **DLQ Alarm** | CloudWatch: `ApproximateNumberOfMessagesVisible > 0` → SNS P1 alert | EvaluationPeriods=1 |
+
+```mermaid
+graph LR
+    EB["EventBridge cron\n0 2 * * ? *"] --> L["Lambda\nfinops-batch-trigger"]
+    L --> SFN["Step Functions\nbatch orchestrator"]
+    SFN --> D["POST /v1/detect\nS3_POINTER"]
+    D -->|"200 OK"| SFN
+    SFN -->|"anomaly detected"| DE["POST /v1/decide"]
+    DE --> SFN
+    SFN -->|"action executed"| V["POST /v1/verify"]
+    V --> SFN
+    SFN -->|"fail x3"| DLQ["SQS DLQ\nfinops-watch-detect-dlq"]
+    DLQ --> CW["CloudWatch Alarm\n→ SNS P1"]
+```
+
+> **WHY Step Functions, không dùng Lambda gọi thẳng:** Lambda có hard timeout 15 phút. Cả pipeline detect → decide → verify có thể mất 30–60 phút nếu có nhiều anomaly. Step Functions không bị giới hạn timeout, retry per-task, và DLQ chỉ trigger khi toàn bộ state machine fail — không block Lambda execution.
 
 ---
 
@@ -81,13 +125,15 @@ Cấu hình tự động co giãn tải (Auto-scaling) đảm bảo tính sẵn 
 
 | Thuộc tính (Aspect) | Giá trị đặc tả (Value) | Ghi chú (Notes) |
 |---|---|---|
-| **Min Replicas** | 2 | Luôn duy trì tối thiểu 2 task trên 2 AZs để đảm bảo High Availability |
-| **Max Replicas** | 10 | Giới hạn trên để tránh cháy ngân sách hạ tầng (Budget Guard) |
-| **Scale-up Trigger 1** | Target CPU Utilization $\ge 70\%$ | Dựa trên chỉ số CPU sử dụng trung bình |
-| **Scale-up Trigger 2** | Target Request Count $\ge 100$ per task | Tránh nghẽn hàng đợi xử lý khi CDO gọi batch |
+| **Min Replicas** | 1 | Batch 1×/ngày — 1 task đủ. CDO có thể tăng lên 2 nếu muốn HA cross-AZ |
+| **Max Replicas** | 3 | Budget guard — batch không cần scale cao; tải đỉnh = 1 req/ngày/tenant |
+| **Scale-up Trigger** | Target CPU Utilization ≥ 70% | Chỉ scale theo CPU (Isolation Forest scoring intensive) — **không dùng RPS trigger** |
 | **Scale-up Cooldown** | 60 giây | Thời gian chờ giữa các lần tăng số lượng task |
-| **Scale-down Cooldown** | 300 giây | Tránh hiện tượng co giãn liên tục gây bất ổn (Thrashing) |
-| **Cold Start Mitigation** | Provisioned Concurrency = 2 | Chỉ áp dụng nếu CDO chọn deployment target là AWS Lambda |
+| **Scale-down Cooldown** | 300 giây | Tránh co giãn liên tục gây bất ổn (Thrashing) |
+| **Cold Start Mitigation** | Provisioned Concurrency = 1 | Chỉ áp dụng nếu CDO chọn deployment target là AWS Lambda |
+
+> [!NOTE]
+> **Batch pattern — không dùng RPS autoscale:** AI Engine nhận 1 req/ngày/tenant từ CDO Step Functions. Target 100 req/task được thiết kế cho HTTP service RPS liên tục — áp dụng cho batch 24h sẽ over-provision hàng trăm lần. Chỉ giữ CPU-based scaling cho Isolation Forest scoring trong batch window.
 
 ---
 
@@ -120,6 +166,9 @@ AI Engine chạy trong Private Subnet, ngăn chặn tấn công từ internet pu
 | **Ingress Rules** | Chỉ cho phép giao thức HTTPS (port 8080/443) đi từ Security Group của CDO Worker/Platform gọi đến AI Engine |
 | **Egress Rules** | Chỉ cho phép đi ra Internet qua NAT Gateway tới Bedrock Endpoint (`bedrock.ap-southeast-1.amazonaws.com`) và các VPC Gateway Endpoints cho Secrets Manager + S3 |
 | **DNS Resolution** | Sử dụng Route 53 Private Hosted Zone để phân giải tên miền nội bộ |
+
+> [!NOTE]
+> **Batch pattern — ALB minimal:** AI Engine không có traffic inbound liên tục. CDO-side EventBridge gọi 1×/ngày qua Step Functions. ALB Internal chỉ cần để định tuyến nội bộ — không cần WAF RPS rule hay target group scaling dựa trên RequestCount.
 
 ---
 
@@ -254,7 +303,32 @@ CDO Containment Worker thực thi AWS CLI/boto3 từ `DecideResponse.applied_pay
 | `auto-shutdown` | dev, sandbox, ml-research, staging | `ec2:StopInstances`, `rds:StopDBInstance`, `sagemaker:StopNotebookInstance` |
 | `quota-cap` | dev, sandbox, data-analytics | `servicequotas:GetServiceQuota`, `servicequotas:RequestServiceQuotaIncrease` |
 
-> ⛔ **Hard Boundary:** `resource_tags_user_environment NOT IN ('prod', 'prod-core', 'prod-payments')` được enforce ở cả AI Engine **và** IAM Condition `StringNotEquals` trên tag `environment` (xem Appendix B).
+> ⛔ **Hard Boundary:** `resource_tags_user_environment NOT IN ('prod', 'prod-core', 'prod-payments')` được enforce ở cả AI Engine **và** IAM Permission Boundary của CDO. Deny statement bắt buộc gắn vào CDO Containment Worker Role:
+>
+> ```json
+> {
+>   "Version": "2012-10-17",
+>   "Statement": [{
+>     "Sid": "DenyContainmentOnProd",
+>     "Effect": "Deny",
+>     "Action": [
+>       "ec2:StopInstances",
+>       "ecs:StopTask",
+>       "sagemaker:Stop*",
+>       "rds:StopDBInstance",
+>       "servicequotas:RequestServiceQuotaIncrease"
+>     ],
+>     "Resource": "*",
+>     "Condition": {
+>       "StringEquals": {
+>         "aws:ResourceTag/user:environment": ["prod", "prod-core", "prod-payments"]
+>       }
+>     }
+>   }]
+> }
+> ```
+>
+> **Note:** Gắn policy trên như `PermissionsBoundary` trên CDO role. Kể cả role policy có Allow, Permission Boundary Deny **chặn tuyệt đối**. Appendix B có full CDO Worker Allow policy (AllowContainmentOnNonProd + AllowQuotaContainment).
 
 ---
 
@@ -334,10 +408,32 @@ CDO Platform đọc header `X-Containment-Status: LOCKED` từ AI Engine respons
 
 Policy mẫu cho CDO Containment Worker Role. CDO customize per-account nhưng **không được** mở rộng quyền trên prod.
 
+**Cấu trúc 2 lớp:**
+
+- **Role Policy** (Allow): cho phép actions cụ thể trên non-prod
+- **Permission Boundary** (Deny): chặn cứng actions trên prod — gắn riêng qua `aws iam put-role-permissions-boundary`
+
 ```json
 {
   "Version": "2012-10-17",
   "Statement": [
+    {
+      "Sid": "DenyContainmentOnProd",
+      "Effect": "Deny",
+      "Action": [
+        "ec2:StopInstances",
+        "ecs:StopTask",
+        "sagemaker:Stop*",
+        "rds:StopDBInstance",
+        "servicequotas:RequestServiceQuotaIncrease"
+      ],
+      "Resource": "*",
+      "Condition": {
+        "StringEquals": {
+          "aws:ResourceTag/user:environment": ["prod", "prod-core", "prod-payments"]
+        }
+      }
+    },
     {
       "Sid": "AllowContainmentOnNonProd",
       "Effect": "Allow",
