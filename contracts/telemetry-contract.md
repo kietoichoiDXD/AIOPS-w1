@@ -4,7 +4,8 @@
      Signed by: AI Lead + CDO Leads × 2 (CDO-01, CDO-02) + Reviewer panel
      Date signed: 2026-06-25 (W11 T5)
      🔒 FREEZE — no change without formal Change Request
-     Cross-ref: ai-api-contract.md v1.4.0 · deployment-contract.md v1.3.0 · docs/02_solution_design.md -->
+     Cross-ref: ai-api-contract.md v1.5.0 · deployment-contract.md v1.4.0 · docs/02_solution_design.md
+     Last updated: 2026-06-26 — data_source/ingestion_method fields, cost estimates, cross-ref sync -->
 
 ---
 
@@ -122,7 +123,7 @@ Khớp 1:1 với `X-Tenant-Id` và `X-Idempotency-Key` trong ai-api-contract.md 
     },
     "idempotency_key": {
       "type": "string",
-      "pattern": "^[a-f0-9-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}:[a-z0-9-]+$",
+      "pattern": "^[a-f0-9-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}:(detect|decide|verify)$",
       "description": "Format: tenant_id:billing_period_date:batch_type (reference: API Contract §4)"
     },
     "ttl_expiry": {
@@ -245,8 +246,10 @@ Dữ liệu tổng hợp vĩ mô. Map trực tiếp với schema `cost_explorer_
 | **Type** | Tabular aggregate (daily grain) |
 | **Frequency** | **Conditional** — chỉ PULL khi `telemetry_delay_event = true`; ngược lại skip CE API |
 | **Lookback window** | **30 ngày** rolling (≈ 6 accounts × ~20 services × 30 days ≈ 3,600 records/batch) |
-| **Emit point** | CDO gọi `aws ce get-cost-and-usage` (TimePeriod = 30d, Granularity = DAILY) → normalize → JSON |
-| **Retention** | 30 ngày hot (S3 cache), 90 ngày cold (S3) |
+| **data_source** | `AWS Cost Explorer API` — `get-cost-and-usage` (TimePeriod = 30d, Granularity = DAILY) |
+| **ingestion_method** | `PULL` — CDO chạy 1×/ngày lúc 02:00 UTC → normalize → JSON |
+| **Estimated cost** | ~$0.60/tháng ($0.01/1,000 CE API requests × ~60 requests/tháng) |
+| **Retention** | 7d hot (S3 cache), 30–90d cold (S3) |
 | **Used for** | Fallback trend detection khi CUR delay; baseline calculation khi thiếu CUR |
 | **Emit SLA** | p99 < 60s từ CE API response → AI consumable |
 | **API mapping** | `DetectResponse.data_confidence = LOW` khi batch dùng CE fallback |
@@ -389,8 +392,10 @@ Dữ liệu vi mô cấp tài nguyên. Map trực tiếp với schema `cur_line_
 |---|---|
 | **Type** | Tabular CUR 2.0 resource-level (daily grain) |
 | **Frequency** | PULL 1 lần/ngày sau CE signal |
-| **Emit point** | CDO đọc S3 CUR manifest → Athena query → JSON/gz → truyền qua S3_POINTER |
-| **Retention** | 7 ngày hot, 90 ngày cold (compliance) |
+| **data_source** | `AWS S3 CUR 2.0 manifest` + Athena |
+| **ingestion_method** | `PULL` — CDO đọc CUR manifest từ S3 → Athena query → JSON/gz → S3_POINTER |
+| **Estimated cost** | ~$5/TB Athena scan; dataset TF2 ≈ 24,533 line items/day → <1 MB/scan → <$0.01/tháng |
+| **Retention** | 7d hot, 90d cold (compliance) |
 | **Used for** | Resource-level anomaly detection, drill-down RCA, containment targeting |
 | **Emit SLA** | p99 < 300s (Athena query + compress + upload) |
 | **Volume SLA** | ~500-25K records/batch (TF2 dataset: 24,533 line items / 92 days ≈ 267/day) |
@@ -549,12 +554,15 @@ WHERE bill_billing_period_start_date = DATE_FORMAT(CURRENT_DATE, '%Y-%m-01 00:00
 Tín hiệu hiệu năng vật lý. **Optional** — AI Engine vẫn detect được nếu thiếu (CUR-only mode) nhưng `confidence *= 0.5`.
 
 > [!IMPORTANT]
-> **v3.1.0 — Đồng bộ ai-api-contract.md v1.4.0 (CDO-P4):**
+> **v3.1.0 — Đồng bộ ai-api-contract.md v1.2.0 (CDO-P4):**
 > CDO **không còn** tính `idle_hours_continuous`. Gửi `cpu_utilization_hourly` (mảng 24 phần tử). AI Engine tự tính chuỗi idle.
 
 | Attribute | Value |
 |---|---|
 | **Type** | CloudWatch Metrics |
+| **data_source** | `AWS CloudWatch API` — `GetMetricData` |
+| **ingestion_method** | `PULL` — CDO chạy 1×/ngày, aggregate 24h period |
+| **Estimated cost** | $0.01/1,000 `GetMetricData` calls; ~200 resources × 5 metrics ≈ 1,000 calls/batch → ~$0.01/ngày |
 | **Frequency** | PULL 1 lần/ngày (aggregate 24h period) |
 | **Used for** | Xác nhận anomaly, giảm false positive, confidence scoring |
 | **Fallback** | Nếu CloudWatch không available → AI Engine vẫn chạy CUR-only detection nhưng `confidence *= 0.5` |
@@ -983,7 +991,7 @@ rate(http_server_requests_total{service="ai-engine"}[5m])
 ### 17.3 AI Model Performance
 
 ```promql
-# Bedrock inference latency P99 (phải < 10s, nếu > 10s → fallback)
+# Bedrock inference latency P99 — fallback trigger > 10s; SLO target < 30s; hard timeout 45s (khớp ai-api-contract §8.1 LLM path)
 histogram_quantile(0.99, rate(ai_model_inference_duration_seconds_bucket{service="ai-engine", model="nova-pro"}[5m]))
 
 # Model fallback rate (bao nhiêu % request phải fallback)
@@ -1080,8 +1088,8 @@ Mọi signal payload phải comply các quy tắc sau:
 
 ## Related Documents
 
-- ai-api-contract.md v1.4.0 — 6 API endpoints, Idempotency rules, DetectResponse.data_confidence.
-- deployment-contract.md v1.3.0 — ECS Fargate compute, CDO IAM Boundaries, Rollback cache.
+- ai-api-contract.md v1.5.0 — 6 API endpoints, Idempotency rules, DetectResponse.data_confidence.
+- deployment-contract.md v1.4.0 — ECS Fargate compute, CDO IAM Boundaries, Rollback cache.
 - docs/01_requirements.md — Success criteria, hard constraints, retention requirements.
 - docs/02_solution_design.md — Architecture overview, component breakdown, data flow.
 - docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
