@@ -7,7 +7,7 @@
 
 ## 1. Model architecture
 
-Hệ thống FinOps Watch sử dụng mô hình **Hybrid Architecture** (Mô hình Lai phái sinh) kết hợp giữa thuật toán Học máy thống kê (Isolation Forest) và Mô hình Ngôn ngữ Lớn tạo sinh (Amazon Nova LLM) theo cơ chế Single-Shot Async Ingestion.
+Hệ thống FinOps Watch sử dụng mô hình **Hybrid Architecture** (Mô hình Lai phái sinh) kết hợp giữa thuật toán Học máy thống kê (Isolation Forest) và Mô hình Ngôn ngữ Lớn tạo sinh (Amazon Nova LLM) theo cơ chế Single-Shot Single-Shot Ingestion Ingestion.
 
 - **Pattern chọn**: Hybrid Model.
   - **Giai đoạn 1 (Lọc thô - ML/Heuristic)**: Sử dụng thuật toán Isolation Forest (scikit-learn) kết hợp bộ lọc Heuristic tĩnh chạy cục bộ trong ECS Fargate. Giai đoạn này loại bỏ 95% dữ liệu bình thường, chỉ chuyển tiếp các điểm nghi ngờ bất thường sang LLM.
