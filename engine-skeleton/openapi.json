@@ -1,0 +1,2829 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "FinOps Watch \u2014 AI Engine",
+    "description": "Production AI Engine for TF2 FinOps Watch. Detects AWS cost anomalies via per-mechanism statistical detectors, plans containment actions, and verifies remediation outcomes. Contract: ai-api-contract.md v1.5.0.",
+    "contact": {
+      "name": "TF2 FinOps Watch \u2014 AI Team",
+      "email": "trankanjin803@gmail.com"
+    },
+    "license": {
+      "name": "Internal \u2014 TF2 Capstone Phase 2"
+    },
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Health"
+        ],
+        "summary": "Health Check",
+        "description": "Called by ALB and ECS Fargate every 30 seconds. No authentication required. Returns overall status and dependency health.",
+        "operationId": "health_check_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/detect": {
+      "post": {
+        "tags": [
+          "Detect"
+        ],
+        "summary": "Detect Cost Anomalies",
+        "description": "Accepts CUR + CE telemetry, runs the anomaly detection engine, and returns a list of detected anomalies synchronously. Requires X-Tenant-Id, X-Idempotency-Key, X-Payload-SHA256, X-Request-Timestamp, and X-Dry-Run-Mode headers.",
+        "operationId": "detect_v1_detect_post",
+        "parameters": [
+          {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Payload-SHA256",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Sha256"
+            }
+          },
+          {
+            "name": "X-Request-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Timestamp"
+            }
+          },
+          {
+            "name": "X-Dry-Run-Mode",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dry-Run-Mode"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Correlation-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetectRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DetectResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or replay attack",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/decide": {
+      "post": {
+        "tags": [
+          "Decide"
+        ],
+        "summary": "Plan Containment Action",
+        "description": "Accepts an anomaly context from /v1/detect, runs root cause analysis, and returns a containment action plan with AWS CLI payloads and dashboard data. X-Correlation-Id must match the correlation_id returned by /v1/detect.",
+        "operationId": "decide_v1_decide_post",
+        "parameters": [
+          {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Payload-SHA256",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Sha256"
+            }
+          },
+          {
+            "name": "X-Request-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Timestamp"
+            }
+          },
+          {
+            "name": "X-Dry-Run-Mode",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dry-Run-Mode"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Correlation-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DecideRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DecideResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Schema validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Anomaly belongs to a different tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Anomaly ID not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (100 req/min/tenant)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/verify": {
+      "post": {
+        "tags": [
+          "Verify"
+        ],
+        "summary": "Verify Containment Outcome",
+        "description": "CDO submits post-action telemetry. AI Engine evaluates whether the cost anomaly resolved and returns next_action: DONE | RETRY | ROLLBACK | ESCALATE.",
+        "operationId": "verify_v1_verify_post",
+        "parameters": [
+          {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          },
+          {
+            "name": "X-Idempotency-Key",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Idempotency-Key"
+            }
+          },
+          {
+            "name": "X-Payload-SHA256",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Payload-Sha256"
+            }
+          },
+          {
+            "name": "X-Request-Timestamp",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Request-Timestamp"
+            }
+          },
+          {
+            "name": "X-Dry-Run-Mode",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dry-Run-Mode"
+            }
+          },
+          {
+            "name": "X-Correlation-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Correlation-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VerifyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Schema validation error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (100 req/min/tenant)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/status/{anomaly_id}": {
+      "get": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Get Remediation Status",
+        "description": "Poll the current remediation status for a specific anomaly_id. If the tenant is in LOCKED_MODE, response headers will include X-Containment-Status: LOCKED.",
+        "operationId": "get_status_v1_status__anomaly_id__get",
+        "parameters": [
+          {
+            "name": "anomaly_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Anomaly ID in format ANM-YYYY-MMDD{A-Z}",
+              "title": "Anomaly Id"
+            },
+            "description": "Anomaly ID in format ANM-YYYY-MMDD{A-Z}"
+          },
+          {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RemediationStatusResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Anomaly belongs to a different tenant",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Anomaly ID not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limit exceeded (100 req/min/tenant)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/audit/{audit_id}/rollback": {
+      "post": {
+        "tags": [
+          "Status"
+        ],
+        "summary": "Record Manual Rollback (False Positive)",
+        "description": "CDO notifies the AI Engine that a remediation was manually rolled back (e.g. false positive). Updates the false-positive counter for model feedback and recalculates the error budget.",
+        "operationId": "record_rollback_v1_audit__audit_id__rollback_post",
+        "parameters": [
+          {
+            "name": "audit_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Anomaly/Audit ID in format ANM-YYYY-MMDD{A-Z}",
+              "title": "Audit Id"
+            },
+            "description": "Anomaly/Audit ID in format ANM-YYYY-MMDD{A-Z}"
+          },
+          {
+            "name": "X-Tenant-Id",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Tenant-Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RollbackRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RollbackResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Audit ID not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ActionExecuted": {
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ContainmentAction"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target",
+            "description": "Resource ARN or ID that was acted upon"
+          },
+          "status": {
+            "$ref": "#/components/schemas/ActionExecutionStatus"
+          },
+          "execution_time_seconds": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Execution Time Seconds"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action",
+          "target",
+          "status"
+        ],
+        "title": "ActionExecuted",
+        "description": "Details of the containment action the CDO executed."
+      },
+      "ActionExecutionStatus": {
+        "type": "string",
+        "enum": [
+          "COMPLETED",
+          "FAILED"
+        ],
+        "title": "ActionExecutionStatus"
+      },
+      "ActionLogEntry": {
+        "properties": {
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "RFC3339 UTC timestamp of this action"
+          },
+          "action": {
+            "$ref": "#/components/schemas/ContainmentAction"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "description": "e.g. COMPLETED, DRY_RUN_COMPLETED, FAILED"
+          },
+          "actor": {
+            "type": "string",
+            "title": "Actor",
+            "description": "Actor that executed the step"
+          }
+        },
+        "type": "object",
+        "required": [
+          "timestamp",
+          "action",
+          "status",
+          "actor"
+        ],
+        "title": "ActionLogEntry"
+      },
+      "ActionPlanStep": {
+        "properties": {
+          "step": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Step",
+            "description": "Sequential step number (starts at 1)"
+          },
+          "action": {
+            "$ref": "#/components/schemas/ContainmentAction"
+          },
+          "target": {
+            "type": "string",
+            "title": "Target",
+            "description": "Resource ARN or ID this step targets"
+          },
+          "params": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Params",
+            "description": "Optional step parameters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "step",
+          "action",
+          "target"
+        ],
+        "title": "ActionPlanStep"
+      },
+      "AlertRouting": {
+        "properties": {
+          "finance": {
+            "type": "boolean",
+            "title": "Finance",
+            "description": "Route to Finance Dashboard"
+          },
+          "engineering": {
+            "type": "boolean",
+            "title": "Engineering",
+            "description": "Route to Engineering Console"
+          }
+        },
+        "type": "object",
+        "required": [
+          "finance",
+          "engineering"
+        ],
+        "title": "AlertRouting",
+        "description": "Which dashboards should receive this anomaly alert."
+      },
+      "AnomalyContext": {
+        "properties": {
+          "anomaly_id": {
+            "type": "string",
+            "title": "Anomaly Id",
+            "description": "ID from detect response anomalies_list"
+          },
+          "anomaly_type": {
+            "$ref": "#/components/schemas/AnomalyType"
+          },
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id",
+            "description": "AWS resource ARN or logical ID"
+          },
+          "environment": {
+            "$ref": "#/components/schemas/Environment"
+          },
+          "unblended_cost_24h_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Unblended Cost 24H Usd"
+          },
+          "cost_ratio_to_7d_avg": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Cost Ratio To 7D Avg"
+          },
+          "responsible_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsible Team"
+          },
+          "cost_center_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Center Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anomaly_id",
+          "anomaly_type",
+          "resource_id",
+          "environment",
+          "unblended_cost_24h_usd",
+          "cost_ratio_to_7d_avg"
+        ],
+        "title": "AnomalyContext",
+        "description": "Anomaly context forwarded from /v1/detect response.",
+        "example": {
+          "anomaly_id": "ANM-2026-0626A",
+          "anomaly_type": "runaway_usage",
+          "cost_center_code": "CC-9001",
+          "cost_ratio_to_7d_avg": 18.2,
+          "environment": "ml-research",
+          "resource_id": "i-0abcd1234efgh5678",
+          "responsible_team": "squad-ml-core",
+          "unblended_cost_24h_usd": 427.5
+        }
+      },
+      "AnomalyItem": {
+        "properties": {
+          "anomaly_id": {
+            "type": "string",
+            "pattern": "^ANM-\\d{4}-\\d{4}[A-Z]$",
+            "title": "Anomaly Id",
+            "description": "Unique anomaly ID, format: ANM-YYYY-MMDD{A-Z}"
+          },
+          "anomaly_type": {
+            "$ref": "#/components/schemas/AnomalyType"
+          },
+          "severity": {
+            "$ref": "#/components/schemas/Severity"
+          },
+          "confidence_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Confidence Score"
+          },
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id",
+            "description": "AWS resource ARN or logical ID"
+          },
+          "environment": {
+            "type": "string",
+            "title": "Environment",
+            "description": "Environment tag of the resource"
+          },
+          "responsible_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Responsible Team",
+            "description": "Team tag of the resource"
+          },
+          "unblended_cost_24h_usd": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Unblended Cost 24H Usd",
+            "description": "24h cost in USD"
+          },
+          "cost_ratio_to_7d_avg": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Cost Ratio To 7D Avg",
+            "description": "Cost ratio vs trailing 7-day average"
+          },
+          "ai_model_used": {
+            "type": "string",
+            "title": "Ai Model Used",
+            "description": "Model or rule that produced this finding"
+          },
+          "alert_routing": {
+            "$ref": "#/components/schemas/AlertRouting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "anomaly_id",
+          "anomaly_type",
+          "severity",
+          "confidence_score",
+          "resource_id",
+          "environment",
+          "unblended_cost_24h_usd",
+          "cost_ratio_to_7d_avg",
+          "ai_model_used",
+          "alert_routing"
+        ],
+        "title": "AnomalyItem",
+        "description": "One detected anomaly in the detect response.",
+        "example": {
+          "ai_model_used": "mock-isolation-forest-v1",
+          "alert_routing": {
+            "engineering": true,
+            "finance": true
+          },
+          "anomaly_id": "ANM-2026-0626A",
+          "anomaly_type": "runaway_usage",
+          "confidence_score": 0.94,
+          "cost_ratio_to_7d_avg": 18.2,
+          "environment": "ml-research",
+          "resource_id": "i-0abcd1234efgh5678",
+          "responsible_team": "squad-ml-core",
+          "severity": "HIGH",
+          "unblended_cost_24h_usd": 427.5
+        }
+      },
+      "AnomalyType": {
+        "type": "string",
+        "enum": [
+          "runaway_usage",
+          "idle_resource",
+          "untagged_spend",
+          "sudden_spike",
+          "gradual_drift"
+        ],
+        "title": "AnomalyType"
+      },
+      "AppliedActionType": {
+        "type": "string",
+        "enum": [
+          "inject_aws_tag",
+          "stop_instance",
+          "stop_sagemaker_notebook",
+          "restrict_quota"
+        ],
+        "title": "AppliedActionType"
+      },
+      "AppliedPayload": {
+        "properties": {
+          "action_type": {
+            "$ref": "#/components/schemas/AppliedActionType"
+          },
+          "aws_cli_command": {
+            "type": "string",
+            "title": "Aws Cli Command",
+            "description": "Complete AWS CLI command for CDO to run"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_type",
+          "aws_cli_command"
+        ],
+        "title": "AppliedPayload",
+        "description": "AWS CLI command to execute the containment action."
+      },
+      "BusinessContext": {
+        "properties": {
+          "linked_account_id": {
+            "type": "string",
+            "pattern": "^\\d{12}$",
+            "title": "Linked Account Id",
+            "description": "Account scope for traffic_volume"
+          },
+          "traffic_volume": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Traffic Volume",
+            "description": "Request/traffic volume for the batch window"
+          },
+          "traffic_source": {
+            "$ref": "#/components/schemas/TrafficSource",
+            "description": "ALB | CloudFront | ApiGateway | Synthetic | Mixed"
+          },
+          "campaign_flag": {
+            "type": "boolean",
+            "title": "Campaign Flag",
+            "description": "True if a marketing campaign is active (benign-cost context)"
+          },
+          "load_test_flag": {
+            "type": "boolean",
+            "title": "Load Test Flag",
+            "description": "True if a load test is running (benign-cost context)"
+          },
+          "migration_flag": {
+            "type": "boolean",
+            "title": "Migration Flag",
+            "description": "True if a data migration is running (benign-cost context)"
+          },
+          "active_users": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active Users"
+          },
+          "orders_count": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orders Count"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "linked_account_id",
+          "traffic_volume",
+          "traffic_source",
+          "campaign_flag",
+          "load_test_flag",
+          "migration_flag"
+        ],
+        "title": "BusinessContext",
+        "description": "Per-batch business signal (contract \u00a75.1 / telemetry \u00a711.2). Required."
+      },
+      "CEDailyItem": {
+        "properties": {
+          "date": {
+            "type": "string",
+            "title": "Date",
+            "description": "Date in YYYY-MM-DD format",
+            "examples": [
+              "2026-06-23"
+            ]
+          },
+          "linked_account_id": {
+            "type": "string",
+            "pattern": "^\\d{12}$",
+            "title": "Linked Account Id",
+            "description": "12-digit AWS account ID"
+          },
+          "linked_account_name": {
+            "type": "string",
+            "title": "Linked Account Name",
+            "description": "Human-readable account name"
+          },
+          "service_code": {
+            "type": "string",
+            "title": "Service Code",
+            "description": "AWS service code, e.g. AmazonEC2"
+          },
+          "service": {
+            "type": "string",
+            "title": "Service",
+            "description": "Full CE display name"
+          },
+          "unblended_cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Unblended Cost",
+            "description": "Unblended cost in USD"
+          },
+          "is_estimated": {
+            "type": "boolean",
+            "title": "Is Estimated",
+            "description": "True if CE cost is still estimated/unfinalized"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region",
+            "description": "AWS region; null/'global' for global services"
+          },
+          "cost_ratio_to_7d_avg": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cost Ratio To 7D Avg",
+            "description": "Cost ratio vs trailing 7-day average"
+          },
+          "day_of_week": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 6.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Of Week",
+            "description": "0=Monday \u2026 6=Sunday"
+          },
+          "is_weekend": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Is Weekend",
+            "description": "True if Saturday or Sunday"
+          }
+        },
+        "type": "object",
+        "required": [
+          "date",
+          "linked_account_id",
+          "linked_account_name",
+          "service_code",
+          "service",
+          "unblended_cost",
+          "is_estimated"
+        ],
+        "title": "CEDailyItem",
+        "description": "One row from aws_cost_explorer_daily (macro-level daily grain).",
+        "example": {
+          "cost_ratio_to_7d_avg": 18.2,
+          "date": "2026-06-23",
+          "day_of_week": 1,
+          "is_estimated": false,
+          "is_weekend": false,
+          "linked_account_id": "200000000012",
+          "linked_account_name": "squad-ml-research",
+          "region": "ap-southeast-1",
+          "service": "Amazon Elastic Compute Cloud - Compute",
+          "service_code": "AmazonEC2",
+          "unblended_cost": 427.5
+        }
+      },
+      "CURLineItem": {
+        "properties": {
+          "bill_billing_period_start_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Bill Billing Period Start Date",
+            "description": "Billing period start (ISO 8601)"
+          },
+          "line_item_usage_start_date": {
+            "type": "string",
+            "title": "Line Item Usage Start Date",
+            "description": "Usage interval start (ISO 8601)"
+          },
+          "line_item_usage_end_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Item Usage End Date",
+            "description": "Usage interval end (ISO 8601)"
+          },
+          "line_item_usage_account_id": {
+            "type": "string",
+            "pattern": "^\\d{12}$",
+            "title": "Line Item Usage Account Id"
+          },
+          "line_item_usage_account_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Item Usage Account Name"
+          },
+          "line_item_product_code": {
+            "type": "string",
+            "title": "Line Item Product Code",
+            "description": "AWS product code, e.g. AmazonEC2"
+          },
+          "line_item_usage_type": {
+            "type": "string",
+            "title": "Line Item Usage Type",
+            "description": "Usage type string, e.g. BoxUsage:g4dn.xlarge"
+          },
+          "line_item_operation": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Item Operation"
+          },
+          "line_item_resource_id": {
+            "type": "string",
+            "title": "Line Item Resource Id",
+            "description": "Resource ARN or logical ID"
+          },
+          "line_item_usage_amount": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Line Item Usage Amount"
+          },
+          "pricing_unit": {
+            "type": "string",
+            "title": "Pricing Unit",
+            "description": "Billing unit, e.g. Hrs, GB, GB-Mo"
+          },
+          "line_item_unblended_rate": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line Item Unblended Rate"
+          },
+          "line_item_unblended_cost": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Line Item Unblended Cost"
+          },
+          "usage_density_24h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Usage Density 24H",
+            "description": "Utilization ratio for Hrs-billed services"
+          },
+          "resource_tags_user_environment": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Tags User Environment",
+            "description": "Environment tag value (null/unknown when untagged)"
+          },
+          "resource_tags_user_team": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Tags User Team"
+          },
+          "resource_tags_user_owner": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Tags User Owner"
+          },
+          "resource_tags_user_cost_center": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Tags User Cost Center"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "line_item_usage_start_date",
+          "line_item_usage_account_id",
+          "line_item_product_code",
+          "line_item_usage_type",
+          "line_item_resource_id",
+          "line_item_usage_amount",
+          "pricing_unit",
+          "line_item_unblended_cost"
+        ],
+        "title": "CURLineItem",
+        "description": "One resource-level CUR line item (micro-level detail)."
+      },
+      "ComparisonWindow": {
+        "properties": {
+          "start_date": {
+            "type": "string",
+            "title": "Start Date",
+            "description": "YYYY-MM-DD"
+          },
+          "end_date": {
+            "type": "string",
+            "title": "End Date",
+            "description": "YYYY-MM-DD"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_date",
+          "end_date"
+        ],
+        "title": "ComparisonWindow",
+        "description": "Date window for the CE-fallback gap (contract \u00a75.1, telemetry \u00a76.2)."
+      },
+      "ContainmentAction": {
+        "type": "string",
+        "enum": [
+          "tag-for-review",
+          "time-gated-countdown",
+          "auto-shutdown",
+          "quota-cap"
+        ],
+        "title": "ContainmentAction"
+      },
+      "DataConfidence": {
+        "type": "string",
+        "enum": [
+          "HIGH",
+          "LOW"
+        ],
+        "title": "DataConfidence",
+        "description": "Detect response confidence in the underlying telemetry (contract \u00a75.1)."
+      },
+      "DataSourceType": {
+        "type": "string",
+        "enum": [
+          "RAW_JSON",
+          "S3_POINTER"
+        ],
+        "title": "DataSourceType"
+      },
+      "DecideRequest": {
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id",
+            "description": "UUID v4 \u2014 must match correlation_id from /v1/detect"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "pattern": "^[a-f0-9\\-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}:[a-z0-9\\-]+$",
+            "title": "Idempotency Key",
+            "description": "Format: {tenant_uuid}:{billing_period_date}:{batch_type}"
+          },
+          "dry_run_mode": {
+            "type": "boolean",
+            "title": "Dry Run Mode",
+            "description": "True = generate plan only, do not execute"
+          },
+          "anomaly_context": {
+            "$ref": "#/components/schemas/AnomalyContext"
+          }
+        },
+        "type": "object",
+        "required": [
+          "correlation_id",
+          "idempotency_key",
+          "dry_run_mode",
+          "anomaly_context"
+        ],
+        "title": "DecideRequest",
+        "description": "Request body for POST /v1/decide.",
+        "example": {
+          "anomaly_context": {
+            "anomaly_id": "ANM-2026-0626A",
+            "anomaly_type": "runaway_usage",
+            "cost_center_code": "CC-9001",
+            "cost_ratio_to_7d_avg": 18.2,
+            "environment": "ml-research",
+            "resource_id": "i-0abcd1234efgh5678",
+            "responsible_team": "squad-ml-core",
+            "unblended_cost_24h_usd": 427.5
+          },
+          "correlation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "dry_run_mode": true,
+          "idempotency_key": "a1b2c3d4-e5f6-7890-abcd-ef1234567890:2026-06-23:daily-batch"
+        }
+      },
+      "DecideResponse": {
+        "properties": {
+          "matched_runbook": {
+            "type": "string",
+            "title": "Matched Runbook",
+            "description": "Runbook name matched from library"
+          },
+          "action_plan": {
+            "items": {
+              "$ref": "#/components/schemas/ActionPlanStep"
+            },
+            "type": "array",
+            "title": "Action Plan",
+            "description": "Ordered list of containment steps"
+          },
+          "applied_payload": {
+            "$ref": "#/components/schemas/AppliedPayload"
+          },
+          "rollback_payload": {
+            "$ref": "#/components/schemas/RollbackPayload"
+          },
+          "finance_dashboard_data": {
+            "$ref": "#/components/schemas/FinanceDashboardData"
+          },
+          "engineering_dashboard_data": {
+            "$ref": "#/components/schemas/EngineeringDashboardData"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id",
+            "description": "UUID v4 \u2014 carry forward to /v1/verify"
+          },
+          "dry_run_mode": {
+            "type": "boolean",
+            "title": "Dry Run Mode",
+            "description": "Echo of dry_run_mode from request"
+          }
+        },
+        "type": "object",
+        "required": [
+          "matched_runbook",
+          "action_plan",
+          "applied_payload",
+          "rollback_payload",
+          "finance_dashboard_data",
+          "engineering_dashboard_data",
+          "correlation_id",
+          "dry_run_mode"
+        ],
+        "title": "DecideResponse",
+        "description": "Response body for POST /v1/decide.",
+        "example": {
+          "action_plan": [
+            {
+              "action": "tag-for-review",
+              "params": {},
+              "step": 1,
+              "target": "i-0abcd1234efgh5678"
+            },
+            {
+              "action": "time-gated-countdown",
+              "params": {
+                "fallback_action": "auto-shutdown",
+                "time_lock_seconds": 14400
+              },
+              "step": 2,
+              "target": "i-0abcd1234efgh5678"
+            }
+          ],
+          "applied_payload": {
+            "action_type": "inject_aws_tag",
+            "aws_cli_command": "aws ec2 create-tags --resources i-0abcd1234efgh5678 --tags Key=finops:review,Value=pending Key=finops:anomaly-id,Value=ANM-2026-0626A --region ap-southeast-1"
+          },
+          "correlation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "dry_run_mode": true,
+          "engineering_dashboard_data": {
+            "root_cause_analysis": {
+              "missing_mandatory_tags": [],
+              "primary_driver_feature": "usage_density_24h",
+              "technical_reason": "EC2 g4dn.xlarge running 100% of 24h with no scheduled training jobs."
+            },
+            "slack_routing": {
+              "channel_name": "#finops-alert-engineering"
+            },
+            "target_recipient": "Engineering Console & Slack #finops-alert-engineering",
+            "technical_context": {
+              "aws_service": "AmazonEC2",
+              "pricing_unit": "Hrs",
+              "usage_amount_24h": 24.0,
+              "usage_density_24h": 1.0,
+              "usage_type": "BoxUsage:g4dn.xlarge"
+            }
+          },
+          "finance_dashboard_data": {
+            "allocation": {
+              "cost_center_code": "CC-9001",
+              "responsible_team": "squad-ml-core"
+            },
+            "executive_summary": "GPU instance running idle for 3 days \u2014 $427/day waste detected.",
+            "metrics": {
+              "cost_ratio_to_7d_avg": 18.2,
+              "projected_monthly_waste_usd": 12825.0,
+              "unblended_cost_24h_usd": 427.5
+            },
+            "target_recipient": "Finance Team & CFO Dashboard"
+          },
+          "matched_runbook": "RunawayMLClusterContainmentRunbook",
+          "rollback_payload": {
+            "action_type": "remove_aws_tag",
+            "aws_cli_rollback_command": "aws ec2 delete-tags --resources i-0abcd1234efgh5678 --tags Key=finops:review Key=finops:anomaly-id --region ap-southeast-1",
+            "original_resource_id": "i-0abcd1234efgh5678"
+          }
+        }
+      },
+      "DetectRequest": {
+        "properties": {
+          "data_source_type": {
+            "$ref": "#/components/schemas/DataSourceType",
+            "description": "RAW_JSON = inline data; S3_POINTER = S3 URI"
+          },
+          "business_context": {
+            "$ref": "#/components/schemas/BusinessContext",
+            "description": "Required every batch \u2014 traffic/campaign context for FP suppression"
+          },
+          "is_ad_hoc": {
+            "type": "boolean",
+            "title": "Is Ad Hoc",
+            "description": "True = emergency scan, bypasses idempotency",
+            "default": false
+          },
+          "telemetry_delay_event": {
+            "type": "boolean",
+            "title": "Telemetry Delay Event",
+            "description": "True = CUR not yet finalized; AI Engine falls back to CE and lowers confidence",
+            "default": false
+          },
+          "aws_cost_explorer_daily": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CEDailyItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Cost Explorer Daily",
+            "description": "CE daily rows \u2014 required only when telemetry_delay_event=true"
+          },
+          "missing_resources": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Missing Resources",
+            "description": "Required when telemetry_delay_event=true: service codes in CE but not yet in CUR"
+          },
+          "current_ce_cost_gap_usd": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Ce Cost Gap Usd",
+            "description": "Required when telemetry_delay_event=true: total USD gap of missing_resources"
+          },
+          "comparison_window": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ComparisonWindow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Required when telemetry_delay_event=true"
+          },
+          "aws_cur_line_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/CURLineItem"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Cur Line Items",
+            "description": "Required when data_source_type=RAW_JSON and telemetry_delay_event=false"
+          },
+          "s3_bucket_uri": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^s3://company-cdo-\\d{12}-telemetry/.+\\.(json|csv)\\.gz$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "S3 Bucket Uri",
+            "description": "Required when data_source_type=S3_POINTER. Bucket: company-cdo-{account_id}-telemetry. Accepts .json.gz (Athena export) or .csv.gz (native AWS CUR \u2014 no conversion needed)."
+          },
+          "callback_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^https://"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Url",
+            "description": "Optional: AI Engine POSTs a copy of DetectResponse after 200 (audit)"
+          },
+          "callback_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Callback Token",
+            "description": "Optional: echoed in X-Callback-Token on the callback"
+          },
+          "resource_utilization_metrics": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/ResourceUtilizationMetric"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resource Utilization Metrics",
+            "description": "Optional CloudWatch utilisation snapshots"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_source_type",
+          "business_context"
+        ],
+        "title": "DetectRequest",
+        "description": "Request body for POST /v1/detect (contract v1.5.0 \u00a75.1).",
+        "example": {
+          "aws_cost_explorer_daily": [
+            {
+              "cost_ratio_to_7d_avg": 18.2,
+              "date": "2026-06-23",
+              "day_of_week": 1,
+              "is_estimated": false,
+              "is_weekend": false,
+              "linked_account_id": "200000000012",
+              "linked_account_name": "squad-ml-research",
+              "region": "ap-southeast-1",
+              "service": "Amazon Elastic Compute Cloud - Compute",
+              "service_code": "AmazonEC2",
+              "unblended_cost": 427.5
+            }
+          ],
+          "aws_cur_line_items": [
+            {
+              "line_item_product_code": "AmazonEC2",
+              "line_item_resource_id": "i-0abcd1234efgh5678",
+              "line_item_unblended_cost": 427.5,
+              "line_item_usage_account_id": "200000000012",
+              "line_item_usage_amount": 24.0,
+              "line_item_usage_start_date": "2026-06-23T00:00:00Z",
+              "line_item_usage_type": "BoxUsage:g4dn.xlarge",
+              "pricing_unit": "Hrs",
+              "resource_tags_user_environment": "ml-research",
+              "usage_density_24h": 1.0
+            }
+          ],
+          "business_context": {
+            "campaign_flag": false,
+            "linked_account_id": "200000000012",
+            "load_test_flag": false,
+            "migration_flag": false,
+            "traffic_source": "ALB",
+            "traffic_volume": 1250000
+          },
+          "data_source_type": "RAW_JSON",
+          "is_ad_hoc": false,
+          "telemetry_delay_event": false
+        }
+      },
+      "DetectResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "True if processing completed without error"
+          },
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id",
+            "description": "UUID v4 trace ID for this detection session"
+          },
+          "anomalies_detected": {
+            "type": "boolean",
+            "title": "Anomalies Detected",
+            "description": "True if at least one anomaly was found"
+          },
+          "data_confidence": {
+            "$ref": "#/components/schemas/DataConfidence",
+            "description": "HIGH = CUR complete; LOW = CE fallback (telemetry_delay_event)",
+            "default": "HIGH"
+          },
+          "anomalies_list": {
+            "items": {
+              "$ref": "#/components/schemas/AnomalyItem"
+            },
+            "type": "array",
+            "title": "Anomalies List",
+            "description": "List of detected anomalies (may be empty)"
+          },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message",
+            "description": "Populated only when success=false"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "correlation_id",
+          "anomalies_detected",
+          "anomalies_list"
+        ],
+        "title": "DetectResponse",
+        "description": "Response body for POST /v1/detect.",
+        "example": {
+          "anomalies_detected": true,
+          "anomalies_list": [
+            {
+              "ai_model_used": "mock-isolation-forest-v1",
+              "alert_routing": {
+                "engineering": true,
+                "finance": true
+              },
+              "anomaly_id": "ANM-2026-0626A",
+              "anomaly_type": "runaway_usage",
+              "confidence_score": 0.94,
+              "cost_ratio_to_7d_avg": 18.2,
+              "environment": "ml-research",
+              "resource_id": "i-0abcd1234efgh5678",
+              "responsible_team": "squad-ml-core",
+              "severity": "HIGH",
+              "unblended_cost_24h_usd": 427.5
+            }
+          ],
+          "correlation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "data_confidence": "HIGH",
+          "success": true
+        }
+      },
+      "EngineeringDashboardData": {
+        "properties": {
+          "target_recipient": {
+            "type": "string",
+            "title": "Target Recipient"
+          },
+          "technical_context": {
+            "$ref": "#/components/schemas/TechnicalContext"
+          },
+          "root_cause_analysis": {
+            "$ref": "#/components/schemas/RootCauseAnalysis"
+          },
+          "slack_routing": {
+            "$ref": "#/components/schemas/SlackRouting"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_recipient",
+          "technical_context",
+          "root_cause_analysis",
+          "slack_routing"
+        ],
+        "title": "EngineeringDashboardData",
+        "description": "Payload for Engineering Console & Slack alert."
+      },
+      "Environment": {
+        "type": "string",
+        "enum": [
+          "prod",
+          "prod-core",
+          "prod-payments",
+          "staging",
+          "dev",
+          "sandbox",
+          "ml-research",
+          "data-analytics"
+        ],
+        "title": "Environment"
+      },
+      "ErrorResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "Always false for error responses",
+            "default": false
+          },
+          "error_code": {
+            "type": "string",
+            "title": "Error Code",
+            "description": "Internal error code (e.g. ERR_INVALID_SCHEMA)"
+          },
+          "error_message": {
+            "type": "string",
+            "title": "Error Message",
+            "description": "Human-readable error detail"
+          },
+          "correlation_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correlation Id",
+            "description": "Trace ID if available"
+          }
+        },
+        "type": "object",
+        "required": [
+          "error_code",
+          "error_message"
+        ],
+        "title": "ErrorResponse",
+        "description": "Standard error envelope returned on 4xx/5xx responses.",
+        "example": {
+          "correlation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "error_code": "ERR_INVALID_SCHEMA",
+          "error_message": "Field 'data_source_type' is required.",
+          "success": false
+        }
+      },
+      "EscalationBundle": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Detailed reason why self-healing failed"
+          },
+          "logs": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Logs",
+            "description": "Raw system log lines"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EscalationMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason"
+        ],
+        "title": "EscalationBundle",
+        "description": "Context package for on-call engineer when next_action=ESCALATE."
+      },
+      "EscalationMetrics": {
+        "properties": {
+          "unblended_cost_24h_usd": {
+            "type": "number",
+            "title": "Unblended Cost 24H Usd"
+          },
+          "cost_ratio_to_7d_avg": {
+            "type": "number",
+            "title": "Cost Ratio To 7D Avg"
+          },
+          "usage_density_24h": {
+            "type": "number",
+            "title": "Usage Density 24H"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unblended_cost_24h_usd",
+          "cost_ratio_to_7d_avg",
+          "usage_density_24h"
+        ],
+        "title": "EscalationMetrics"
+      },
+      "FinanceAllocation": {
+        "properties": {
+          "responsible_team": {
+            "type": "string",
+            "title": "Responsible Team"
+          },
+          "cost_center_code": {
+            "type": "string",
+            "title": "Cost Center Code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "responsible_team",
+          "cost_center_code"
+        ],
+        "title": "FinanceAllocation"
+      },
+      "FinanceDashboardData": {
+        "properties": {
+          "target_recipient": {
+            "type": "string",
+            "title": "Target Recipient",
+            "description": "Audience label"
+          },
+          "metrics": {
+            "$ref": "#/components/schemas/FinanceMetrics"
+          },
+          "allocation": {
+            "$ref": "#/components/schemas/FinanceAllocation"
+          },
+          "executive_summary": {
+            "type": "string",
+            "title": "Executive Summary",
+            "description": "Plain-language summary for executives"
+          }
+        },
+        "type": "object",
+        "required": [
+          "target_recipient",
+          "metrics",
+          "allocation",
+          "executive_summary"
+        ],
+        "title": "FinanceDashboardData",
+        "description": "Payload for Finance Dashboard / CFO \u2014 no technical detail."
+      },
+      "FinanceMetrics": {
+        "properties": {
+          "unblended_cost_24h_usd": {
+            "type": "number",
+            "title": "Unblended Cost 24H Usd"
+          },
+          "cost_ratio_to_7d_avg": {
+            "type": "number",
+            "title": "Cost Ratio To 7D Avg"
+          },
+          "projected_monthly_waste_usd": {
+            "type": "number",
+            "title": "Projected Monthly Waste Usd"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unblended_cost_24h_usd",
+          "cost_ratio_to_7d_avg",
+          "projected_monthly_waste_usd"
+        ],
+        "title": "FinanceMetrics"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "$ref": "#/components/schemas/HealthStatus",
+            "description": "Overall health: healthy / degraded / unhealthy"
+          },
+          "timestamp": {
+            "type": "string",
+            "title": "Timestamp",
+            "description": "RFC3339 UTC timestamp of this check"
+          },
+          "services": {
+            "$ref": "#/components/schemas/ServicesStatus",
+            "description": "Per-dependency health detail"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "timestamp",
+          "services"
+        ],
+        "title": "HealthResponse",
+        "description": "Response body for GET /health.",
+        "example": {
+          "services": {
+            "bedrock_api": "accessible",
+            "s3_audit_bucket": "connected",
+            "s3_cur_bucket": "reachable"
+          },
+          "status": "healthy",
+          "timestamp": "2026-06-26T10:00:00Z"
+        }
+      },
+      "HealthStatus": {
+        "type": "string",
+        "enum": [
+          "healthy",
+          "degraded",
+          "unhealthy"
+        ],
+        "title": "HealthStatus"
+      },
+      "NextAction": {
+        "type": "string",
+        "enum": [
+          "DONE",
+          "RETRY",
+          "ROLLBACK",
+          "ESCALATE"
+        ],
+        "title": "NextAction"
+      },
+      "PostTelemetryWindow": {
+        "properties": {
+          "data_source_type": {
+            "$ref": "#/components/schemas/DataSourceType"
+          },
+          "aws_cost_explorer_daily": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Aws Cost Explorer Daily",
+            "description": "CE rows observed after the containment action"
+          },
+          "aws_cur_line_items": {
+            "anyOf": [
+              {
+                "items": {
+                  "additionalProperties": true,
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aws Cur Line Items"
+          },
+          "s3_bucket_uri": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "S3 Bucket Uri"
+          }
+        },
+        "type": "object",
+        "required": [
+          "data_source_type",
+          "aws_cost_explorer_daily"
+        ],
+        "title": "PostTelemetryWindow",
+        "description": "Post-action telemetry \u2014 same structure as detect request (simplified)."
+      },
+      "RemediationStatus": {
+        "type": "string",
+        "enum": [
+          "PENDING_APPROVAL",
+          "IN_PROGRESS",
+          "SUCCESS",
+          "ROLLED_BACK",
+          "ESCALATED"
+        ],
+        "title": "RemediationStatus"
+      },
+      "RemediationStatusResponse": {
+        "properties": {
+          "audit_id": {
+            "type": "string",
+            "title": "Audit Id",
+            "description": "Audit-record identifier (UUID v4) \u2014 audit chain, telemetry \u00a716"
+          },
+          "anomaly_id": {
+            "type": "string",
+            "pattern": "^ANM-\\d{4}-\\d{4}[A-Z]$",
+            "title": "Anomaly Id",
+            "description": "Anomaly ID (ANM-YYYY-MMDD{A-Z}) \u2014 matches the path param"
+          },
+          "status": {
+            "$ref": "#/components/schemas/RemediationStatus"
+          },
+          "containment_locked": {
+            "type": "boolean",
+            "title": "Containment Locked",
+            "description": "True if tenant is in LOCKED_MODE (dry-run only)"
+          },
+          "error_budget_remaining_pct": {
+            "type": "number",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Error Budget Remaining Pct",
+            "description": "Error budget remaining (0\u2013100 %)"
+          },
+          "actions_log": {
+            "items": {
+              "$ref": "#/components/schemas/ActionLogEntry"
+            },
+            "type": "array",
+            "title": "Actions Log",
+            "description": "Ordered history of steps taken"
+          }
+        },
+        "type": "object",
+        "required": [
+          "audit_id",
+          "anomaly_id",
+          "status",
+          "containment_locked",
+          "error_budget_remaining_pct",
+          "actions_log"
+        ],
+        "title": "RemediationStatusResponse",
+        "description": "Response body for GET /v1/status/{id}.",
+        "example": {
+          "actions_log": [
+            {
+              "action": "tag-for-review",
+              "actor": "finops-ai-engine-role",
+              "status": "DRY_RUN_COMPLETED",
+              "timestamp": "2026-06-26T10:05:46Z"
+            }
+          ],
+          "anomaly_id": "ANM-2026-0626A",
+          "audit_id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+          "containment_locked": false,
+          "error_budget_remaining_pct": 97.3,
+          "status": "PENDING_APPROVAL"
+        }
+      },
+      "ResourceUtilizationMetric": {
+        "properties": {
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id",
+            "description": "Resource ARN or instance ID"
+          },
+          "cpu_percent": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Percent",
+            "description": "Average CPU utilisation (%)"
+          },
+          "memory_mib": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Memory Mib"
+          },
+          "network_in_bytes": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network In Bytes"
+          },
+          "network_out_bytes": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Network Out Bytes"
+          },
+          "disk_io_ops": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Disk Io Ops"
+          },
+          "database_connections": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Database Connections"
+          },
+          "gpu_utilization": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Utilization"
+          },
+          "cpu_utilization_hourly": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cpu Utilization Hourly",
+            "description": "24 per-hour avg CPU values (contract name)"
+          },
+          "hourly_cpu_percent": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array",
+                "maxItems": 24
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hourly Cpu Percent",
+            "description": "Alias of cpu_utilization_hourly (legacy)"
+          }
+        },
+        "additionalProperties": true,
+        "type": "object",
+        "required": [
+          "resource_id"
+        ],
+        "title": "ResourceUtilizationMetric",
+        "description": "CloudWatch metric snapshot for one resource."
+      },
+      "RollbackActionType": {
+        "type": "string",
+        "enum": [
+          "remove_aws_tag",
+          "start_instance",
+          "start_sagemaker_notebook",
+          "restore_quota"
+        ],
+        "title": "RollbackActionType"
+      },
+      "RollbackPayload": {
+        "properties": {
+          "action_type": {
+            "$ref": "#/components/schemas/RollbackActionType"
+          },
+          "aws_cli_rollback_command": {
+            "type": "string",
+            "title": "Aws Cli Rollback Command",
+            "description": "Complete AWS CLI rollback command"
+          },
+          "original_resource_id": {
+            "type": "string",
+            "title": "Original Resource Id",
+            "description": "Original resource ARN \u2014 verify rollback target"
+          }
+        },
+        "type": "object",
+        "required": [
+          "action_type",
+          "aws_cli_rollback_command",
+          "original_resource_id"
+        ],
+        "title": "RollbackPayload",
+        "description": "AWS CLI command to undo the containment action."
+      },
+      "RollbackRequest": {
+        "properties": {
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "description": "Why the rollback was triggered (e.g. False Positive)"
+          },
+          "rolled_back_by": {
+            "type": "string",
+            "title": "Rolled Back By",
+            "description": "Email of engineer who initiated rollback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "reason",
+          "rolled_back_by"
+        ],
+        "title": "RollbackRequest",
+        "description": "Request body for POST /v1/audit/{audit_id}/rollback.",
+        "example": {
+          "reason": "False positive \u2014 instance is used for approved experiment",
+          "rolled_back_by": "engineer@company.com"
+        }
+      },
+      "RollbackResponse": {
+        "properties": {
+          "rollback_recorded": {
+            "type": "boolean",
+            "title": "Rollback Recorded",
+            "description": "True if audit log was updated"
+          },
+          "false_positive_count_updated": {
+            "type": "boolean",
+            "title": "False Positive Count Updated",
+            "description": "True if FP counter was incremented for model feedback"
+          },
+          "new_error_budget_burned_pct": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "New Error Budget Burned Pct",
+            "description": "Updated error budget burn percentage after this event"
+          },
+          "containment_locked": {
+            "type": "boolean",
+            "title": "Containment Locked",
+            "description": "True if LOCKED_MODE was triggered by this rollback"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "description": "Human-readable system message"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rollback_recorded",
+          "false_positive_count_updated",
+          "new_error_budget_burned_pct",
+          "containment_locked",
+          "message"
+        ],
+        "title": "RollbackResponse",
+        "description": "Response body for POST /v1/audit/{audit_id}/rollback.",
+        "example": {
+          "containment_locked": true,
+          "false_positive_count_updated": true,
+          "message": "Error budget exceeded 1%. Tenant switched to LOCKED_MODE \u2014 all containment actions will be dry-run only.",
+          "new_error_budget_burned_pct": 1.5,
+          "rollback_recorded": true
+        }
+      },
+      "RootCauseAnalysis": {
+        "properties": {
+          "primary_driver_feature": {
+            "type": "string",
+            "title": "Primary Driver Feature"
+          },
+          "technical_reason": {
+            "type": "string",
+            "title": "Technical Reason"
+          },
+          "missing_mandatory_tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Missing Mandatory Tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "primary_driver_feature",
+          "technical_reason"
+        ],
+        "title": "RootCauseAnalysis"
+      },
+      "ServicesStatus": {
+        "properties": {
+          "s3_audit_bucket": {
+            "type": "string",
+            "title": "S3 Audit Bucket",
+            "description": "'connected' or 'disconnected'"
+          },
+          "bedrock_api": {
+            "type": "string",
+            "title": "Bedrock Api",
+            "description": "'accessible' or 'inaccessible'"
+          },
+          "s3_cur_bucket": {
+            "type": "string",
+            "title": "S3 Cur Bucket",
+            "description": "'reachable' or 'unreachable'"
+          }
+        },
+        "type": "object",
+        "required": [
+          "s3_audit_bucket",
+          "bedrock_api",
+          "s3_cur_bucket"
+        ],
+        "title": "ServicesStatus",
+        "description": "Dependency health status.",
+        "example": {
+          "bedrock_api": "accessible",
+          "s3_audit_bucket": "connected",
+          "s3_cur_bucket": "reachable"
+        }
+      },
+      "Severity": {
+        "type": "string",
+        "enum": [
+          "HIGH",
+          "MEDIUM",
+          "LOW"
+        ],
+        "title": "Severity"
+      },
+      "SlackRouting": {
+        "properties": {
+          "channel_name": {
+            "type": "string",
+            "title": "Channel Name"
+          },
+          "webhook_url_pointer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Webhook Url Pointer"
+          }
+        },
+        "type": "object",
+        "required": [
+          "channel_name"
+        ],
+        "title": "SlackRouting"
+      },
+      "TechnicalContext": {
+        "properties": {
+          "aws_service": {
+            "type": "string",
+            "title": "Aws Service"
+          },
+          "usage_type": {
+            "type": "string",
+            "title": "Usage Type"
+          },
+          "pricing_unit": {
+            "type": "string",
+            "title": "Pricing Unit"
+          },
+          "usage_amount_24h": {
+            "type": "number",
+            "title": "Usage Amount 24H"
+          },
+          "usage_density_24h": {
+            "type": "number",
+            "title": "Usage Density 24H"
+          }
+        },
+        "type": "object",
+        "required": [
+          "aws_service",
+          "usage_type",
+          "pricing_unit",
+          "usage_amount_24h",
+          "usage_density_24h"
+        ],
+        "title": "TechnicalContext"
+      },
+      "TrafficSource": {
+        "type": "string",
+        "enum": [
+          "ALB",
+          "CloudFront",
+          "ApiGateway",
+          "Synthetic",
+          "Mixed"
+        ],
+        "title": "TrafficSource"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "VerifyRequest": {
+        "properties": {
+          "correlation_id": {
+            "type": "string",
+            "title": "Correlation Id",
+            "description": "UUID v4 \u2014 must match across detect\u2192decide\u2192verify"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "pattern": "^[a-f0-9\\-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}:[a-z0-9\\-]+$",
+            "title": "Idempotency Key"
+          },
+          "dry_run_mode": {
+            "type": "boolean",
+            "title": "Dry Run Mode",
+            "description": "Must match dry_run_mode from /v1/decide"
+          },
+          "action_executed": {
+            "$ref": "#/components/schemas/ActionExecuted"
+          },
+          "post_telemetry_window": {
+            "$ref": "#/components/schemas/PostTelemetryWindow"
+          }
+        },
+        "type": "object",
+        "required": [
+          "correlation_id",
+          "idempotency_key",
+          "dry_run_mode",
+          "action_executed",
+          "post_telemetry_window"
+        ],
+        "title": "VerifyRequest",
+        "description": "Request body for POST /v1/verify.",
+        "example": {
+          "action_executed": {
+            "action": "tag-for-review",
+            "execution_time_seconds": 3,
+            "status": "COMPLETED",
+            "target": "i-0abcd1234efgh5678"
+          },
+          "correlation_id": "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d",
+          "dry_run_mode": true,
+          "idempotency_key": "b2c3d4e5-f6a7-8901-bcde-f12345678901:2026-06-24:daily-batch",
+          "post_telemetry_window": {
+            "aws_cost_explorer_daily": [
+              {
+                "cost_ratio_to_7d_avg": 0.0,
+                "date": "2026-06-24",
+                "day_of_week": 2,
+                "is_estimated": false,
+                "is_weekend": false,
+                "linked_account_id": "200000000012",
+                "linked_account_name": "squad-ml-research",
+                "region": "ap-southeast-1",
+                "service": "Amazon Elastic Compute Cloud - Compute",
+                "service_code": "AmazonEC2",
+                "unblended_cost": 0.0
+              }
+            ],
+            "aws_cur_line_items": [],
+            "data_source_type": "RAW_JSON"
+          }
+        }
+      },
+      "VerifyResponse": {
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "title": "Success",
+            "description": "True if cost metric returned to baseline"
+          },
+          "regression_detected": {
+            "type": "boolean",
+            "title": "Regression Detected",
+            "description": "True if post-action cost spiked as side-effect"
+          },
+          "next_action": {
+            "$ref": "#/components/schemas/NextAction",
+            "description": "CDO next step: DONE/RETRY/ROLLBACK/ESCALATE"
+          },
+          "escalation_bundle": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EscalationBundle"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Populated when next_action=ESCALATE"
+          }
+        },
+        "type": "object",
+        "required": [
+          "success",
+          "regression_detected",
+          "next_action"
+        ],
+        "title": "VerifyResponse",
+        "description": "Response body for POST /v1/verify.",
+        "example": {
+          "next_action": "DONE",
+          "regression_detected": false,
+          "success": true
+        }
+      }
+    }
+  }
+}

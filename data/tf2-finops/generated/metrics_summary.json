@@ -1,0 +1,55 @@
+{
+  "generated_at": "2026-06-26T08:02:54.527701+00:00",
+  "schema_versions": {
+    "ai_api_contract": "v1.5.0",
+    "telemetry_contract": "v3.2.0",
+    "deployment_contract": "v1.4.0"
+  },
+  "dataset": {
+    "cur_line_items": 24533,
+    "ce_daily_rows": 2770,
+    "date_range": [
+      "2026-03-01",
+      "2026-05-31"
+    ],
+    "accounts": 6,
+    "resources": 276
+  },
+  "generated_files": [
+    "daily_cost_with_traffic.csv",
+    "feature_store_daily.csv",
+    "aws_cost_explorer_daily_30d.csv",
+    "sample_detect_request_2026-05-31_prod-core.json",
+    "metrics_summary.json"
+  ],
+  "feature_engineering": {
+    "cost_per_request_formula": "daily_cost / max(traffic_volume, 1)",
+    "usage_density_24h_formula": "line_item_usage_amount / 24 (when pricing_unit=Hrs)",
+    "traffic_source": "Synthetic (correlated with CE daily cost)"
+  },
+  "data_quality": {
+    "audit_date": "2026-06-26",
+    "status": "CLEAN",
+    "checks": {
+      "null_key_fields": "PASS \u2014 0 nulls in date/account/resource/cost columns",
+      "negative_costs": "PASS \u2014 0 negative cost rows",
+      "duplicate_rows": "PASS \u2014 0 (date,resource) duplicates",
+      "date_alignment": "PASS \u2014 CE/CUR/traffic all 92 days 2026-03-01\u21922026-05-31",
+      "account_consistency": "PASS \u2014 same 6 accounts across all files",
+      "cost_cross_check": "PASS \u2014 CE $593,773.09 vs CUR $593,773.34 (diff $0.25 = rounding)",
+      "is_estimated": "PASS \u2014 only last 2 days of May flagged",
+      "untagged_spend": "$13,606.23 in prod-payments (i-0untaggedfleet01) \u2014 planted anomaly",
+      "seasonality": "PASS \u2014 weekday 1.22x weekend, consistent with AWS billing patterns"
+    },
+    "fixes_applied": [
+      "feature_store_daily.csv: added linked_account_id, linked_account_name, service_code columns",
+      "feature_store_daily.csv: imputed usage_density_24h null\u21920 for non-Hrs services; added is_hourly_billing flag",
+      "metrics_summary.json: updated ai_api_contract v1.4.0\u2192v1.5.0, deployment_contract v1.3.0\u2192v1.4.0"
+    ],
+    "known_acceptable": [
+      "usage_density_24h=0 for non-Hrs services (DataTransfer/S3/Lambda/Athena etc.) \u2014 is_hourly_billing=0 flags these",
+      "CE vs CUR $0.25 rounding gap \u2014 CE aggregates 2dp, CUR has 4dp precision",
+      "cost_ratio in synthetic_traffic_daily.csv: business-logic ratio, not raw cost/day1; treat as opaque feature"
+    ]
+  }
+}

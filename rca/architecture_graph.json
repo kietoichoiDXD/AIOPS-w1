@@ -1,0 +1,695 @@
+{
+  "metadata": {
+    "generated_at": "2026-06-29T13:29:53Z",
+    "confidence": "Medium-High",
+    "graph_type": "directed",
+    "sources": [
+      "cur_line_items.csv",
+      "cost_explorer_daily.csv",
+      "AIO2/metrics_data/metrics.csv (CloudWatch-equivalent, 61 resources hourly)"
+    ],
+    "note": "Core RDS/cache/GPU dependencies upgraded to High via CloudWatch metric confirmation (database_connections, gpu_utilization); cross-account and no-evidence links omitted."
+  },
+  "nodes": [
+    {
+      "id": "ec2-prod-core",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "i-00000003e9 (+23 instances)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "ec2-prod-payments",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "19 instances",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "ec2-dev",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "49 instances",
+      "account": "200000000013",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "ec2-staging",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "13 instances",
+      "account": "200000000012",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "ec2-ml-research",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "13 GPU instances",
+      "account": "200000000015",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "eks-prod-core",
+      "service": "EKS",
+      "category": "compute",
+      "resource_id": "res-amazoneks-1029 (3 clusters)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "eks-staging",
+      "service": "EKS",
+      "category": "compute",
+      "resource_id": "2 clusters",
+      "account": "200000000012",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "sagemaker-ml-research",
+      "service": "SageMaker",
+      "category": "compute",
+      "resource_id": "res-amazonsagemaker-1251 (12 notebooks)",
+      "account": "200000000015",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "gpu-cluster-ml-research",
+      "service": "EC2",
+      "category": "compute",
+      "resource_id": "i-0fbgpu00000000 (5x p3 GPU, metrics gpu_utilization~69%)",
+      "account": "200000000015",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "lambda-dev",
+      "service": "Lambda",
+      "category": "serverless",
+      "resource_id": "res-awslambda-1214",
+      "account": "200000000013",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "s3-prod-core",
+      "service": "S3",
+      "category": "storage",
+      "resource_id": "bucket (prod-core)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "s3-data-analytics",
+      "service": "S3",
+      "category": "storage",
+      "resource_id": "bucket-1054",
+      "account": "200000000014",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "s3-ml-research",
+      "service": "S3",
+      "category": "storage",
+      "resource_id": "bucket (ml-research)",
+      "account": "200000000015",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "ebs-prod-core",
+      "service": "EBS",
+      "category": "storage",
+      "resource_id": "EC2 CreateVolume",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "ebs-prod-payments",
+      "service": "EBS",
+      "category": "storage",
+      "resource_id": "EC2 CreateVolume",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "ebs-dev",
+      "service": "EBS",
+      "category": "storage",
+      "resource_id": "EC2 CreateVolume",
+      "account": "200000000013",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "ebs-staging",
+      "service": "EBS",
+      "category": "storage",
+      "resource_id": "EC2 CreateVolume",
+      "account": "200000000012",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "ebs-ml-research",
+      "service": "EBS",
+      "category": "storage",
+      "resource_id": "EC2 CreateVolume",
+      "account": "200000000015",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "rds-prod-core",
+      "service": "RDS",
+      "category": "database",
+      "resource_id": "arn:aws:rds db-1025 (4)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "rds-prod-payments",
+      "service": "RDS",
+      "category": "database",
+      "resource_id": "3 instances",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "rds-dev",
+      "service": "RDS",
+      "category": "database",
+      "resource_id": "5 instances",
+      "account": "200000000013",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "rds-staging",
+      "service": "RDS",
+      "category": "database",
+      "resource_id": "5 instances",
+      "account": "200000000012",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "dynamodb-prod-payments",
+      "service": "DynamoDB",
+      "category": "database",
+      "resource_id": "ddb-table-events-prod",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "dynamodb-data-analytics",
+      "service": "DynamoDB",
+      "category": "database",
+      "resource_id": "res-amazondynamodb-1067 (2)",
+      "account": "200000000014",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "elasticache-prod-core",
+      "service": "ElastiCache",
+      "category": "database",
+      "resource_id": "res-amazonelasticache-1040 (6)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "opensearch-data-analytics",
+      "service": "OpenSearch",
+      "category": "database",
+      "resource_id": "res-amazones-1231 (10 domains)",
+      "account": "200000000014",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "alb-prod-core",
+      "service": "ALB",
+      "category": "networking",
+      "resource_id": "res-awselb-1032 (8 ALB)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "nat-prod-core",
+      "service": "NATGateway",
+      "category": "networking",
+      "resource_id": "res-amazonvpc-1047 (6 NAT)",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "datatransfer-prod-core",
+      "service": "DataTransfer",
+      "category": "networking",
+      "resource_id": "PublicIP-Out / InterZone",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "datatransfer-prod-payments",
+      "service": "DataTransfer",
+      "category": "networking",
+      "resource_id": "DataTransfer-Out-Bytes",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "datatransfer-data-analytics",
+      "service": "DataTransfer",
+      "category": "networking",
+      "resource_id": "DataTransfer-Out-Bytes",
+      "account": "200000000014",
+      "region": "us-east-1",
+      "confidence": "Medium"
+    },
+    {
+      "id": "cloudwatch-prod-core",
+      "service": "CloudWatch",
+      "category": "monitoring",
+      "resource_id": "res-amazoncloudwatch-1046",
+      "account": "200000000010",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "cloudwatch-dev",
+      "service": "CloudWatch",
+      "category": "monitoring",
+      "resource_id": "log-group-debug-runaway",
+      "account": "200000000013",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "cloudwatch-staging",
+      "service": "CloudWatch",
+      "category": "monitoring",
+      "resource_id": "CloudWatch logs/metrics",
+      "account": "200000000012",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "kms-prod-payments",
+      "service": "KMS",
+      "category": "security",
+      "resource_id": "res-awskms-1076 (40 keys)",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "msk-prod-payments",
+      "service": "MSK",
+      "category": "messaging",
+      "resource_id": "res-amazonmsk-1221",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "kinesis-prod-payments",
+      "service": "Kinesis",
+      "category": "messaging",
+      "resource_id": "res-amazonkinesis-1116 (30 shards)",
+      "account": "200000000011",
+      "region": "us-east-1",
+      "confidence": "High"
+    },
+    {
+      "id": "athena-data-analytics",
+      "service": "Athena",
+      "category": "analytics",
+      "resource_id": "res-amazonathena-1241",
+      "account": "200000000014",
+      "region": "us-east-1",
+      "confidence": "High"
+    }
+  ],
+  "edges": [
+    {
+      "from": "alb-prod-core",
+      "to": "ec2-prod-core",
+      "relation": "route",
+      "confidence": "High",
+      "reason": "AWSELB LoadBalancing:Application + EC2 fleet in same account prod-core; canonical ALB to EC2 target routing."
+    },
+    {
+      "from": "alb-prod-core",
+      "to": "eks-prod-core",
+      "relation": "route",
+      "confidence": "Medium",
+      "reason": "ALB and EKS clusters co-located in prod-core; ALB commonly fronts EKS ingress services."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "ebs-prod-core",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "AmazonEC2 CreateVolume operation observed; EC2 instances attach EBS volumes."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "cloudwatch-prod-core",
+      "relation": "emit_metrics",
+      "confidence": "High",
+      "reason": "EC2 and CloudWatch both present in prod-core; EC2 emits metrics/logs to CloudWatch."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "rds-prod-core",
+      "relation": "query",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm RDS database_connections ~71 in prod-core; EC2 app tier connects to RDS."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "elasticache-prod-core",
+      "relation": "cache",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm ElastiCache database_connections ~24 in prod-core; EC2 app tier uses cache."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "s3-prod-core",
+      "relation": "read_write",
+      "confidence": "Medium",
+      "reason": "EC2 and S3 co-located in prod-core; object storage access."
+    },
+    {
+      "from": "ec2-prod-core",
+      "to": "nat-prod-core",
+      "relation": "egress",
+      "confidence": "Medium",
+      "reason": "NatGateway in prod-core; private EC2 egress to internet via NAT."
+    },
+    {
+      "from": "eks-prod-core",
+      "to": "ebs-prod-core",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "EKS worker volumes billed via EC2 CreateVolume in prod-core."
+    },
+    {
+      "from": "eks-prod-core",
+      "to": "cloudwatch-prod-core",
+      "relation": "emit_metrics",
+      "confidence": "Medium",
+      "reason": "EKS to CloudWatch Container Insights pattern; both in prod-core."
+    },
+    {
+      "from": "eks-prod-core",
+      "to": "rds-prod-core",
+      "relation": "query",
+      "confidence": "Medium",
+      "reason": "EKS workloads and RDS co-located in prod-core."
+    },
+    {
+      "from": "rds-prod-core",
+      "to": "ebs-prod-core",
+      "relation": "store",
+      "confidence": "Medium",
+      "reason": "RDS storage backed by EBS volumes."
+    },
+    {
+      "from": "nat-prod-core",
+      "to": "datatransfer-prod-core",
+      "relation": "drives_cost",
+      "confidence": "Medium",
+      "reason": "NAT egress drives AWSDataTransfer PublicIP-Out in prod-core."
+    },
+    {
+      "from": "kinesis-prod-payments",
+      "to": "ec2-prod-payments",
+      "relation": "stream_consume",
+      "confidence": "Medium",
+      "reason": "Kinesis shards and EC2 consumers co-located in prod-payments; stream to consumer dependency."
+    },
+    {
+      "from": "msk-prod-payments",
+      "to": "ec2-prod-payments",
+      "relation": "stream_consume",
+      "confidence": "Medium",
+      "reason": "MSK Kafka brokers and EC2 consumers co-located in prod-payments."
+    },
+    {
+      "from": "ec2-prod-payments",
+      "to": "ebs-prod-payments",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "AmazonEC2 CreateVolume operation; EC2 attaches EBS in prod-payments."
+    },
+    {
+      "from": "ec2-prod-payments",
+      "to": "dynamodb-prod-payments",
+      "relation": "read_write",
+      "confidence": "Medium",
+      "reason": "EC2 and ddb-table-events-prod co-located in prod-payments; event persistence."
+    },
+    {
+      "from": "ec2-prod-payments",
+      "to": "rds-prod-payments",
+      "relation": "query",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm RDS database_connections ~84 in prod-payments; EC2 app tier connects to RDS."
+    },
+    {
+      "from": "ec2-prod-payments",
+      "to": "datatransfer-prod-payments",
+      "relation": "egress",
+      "confidence": "Medium",
+      "reason": "EC2 egress drives DataTransfer-Out in prod-payments."
+    },
+    {
+      "from": "dynamodb-prod-payments",
+      "to": "kms-prod-payments",
+      "relation": "encrypt",
+      "confidence": "Medium",
+      "reason": "40 KMS keys in prod-payments; DynamoDB encryption at rest with CMK."
+    },
+    {
+      "from": "msk-prod-payments",
+      "to": "kms-prod-payments",
+      "relation": "encrypt",
+      "confidence": "Medium",
+      "reason": "MSK encryption at rest uses KMS CMK in prod-payments."
+    },
+    {
+      "from": "rds-prod-payments",
+      "to": "kms-prod-payments",
+      "relation": "encrypt",
+      "confidence": "Medium",
+      "reason": "RDS storage encryption uses KMS CMK in prod-payments."
+    },
+    {
+      "from": "rds-prod-payments",
+      "to": "ebs-prod-payments",
+      "relation": "store",
+      "confidence": "Medium",
+      "reason": "RDS storage backed by EBS volumes."
+    },
+    {
+      "from": "athena-data-analytics",
+      "to": "s3-data-analytics",
+      "relation": "scan",
+      "confidence": "High",
+      "reason": "Athena DataScannedInTB operation queries S3 data lake; both in data-analytics."
+    },
+    {
+      "from": "s3-data-analytics",
+      "to": "datatransfer-data-analytics",
+      "relation": "egress",
+      "confidence": "Medium",
+      "reason": "S3 reads/exports drive DataTransfer-Out in data-analytics."
+    },
+    {
+      "from": "s3-data-analytics",
+      "to": "opensearch-data-analytics",
+      "relation": "index",
+      "confidence": "Low",
+      "reason": "OpenSearch and S3 co-located in data-analytics; common S3 to OpenSearch indexing pipeline (no direct ARN evidence)."
+    },
+    {
+      "from": "sagemaker-ml-research",
+      "to": "s3-ml-research",
+      "relation": "read_write",
+      "confidence": "Medium",
+      "reason": "SageMaker notebooks and S3 co-located in ml-research; training data/artifact storage."
+    },
+    {
+      "from": "ec2-ml-research",
+      "to": "s3-ml-research",
+      "relation": "read_write",
+      "confidence": "Medium",
+      "reason": "ml-research EC2 jobs read/write training data in S3."
+    },
+    {
+      "from": "ec2-ml-research",
+      "to": "ebs-ml-research",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "AmazonEC2 CreateVolume + disk_io_ops metrics in ml-research; instances attach EBS."
+    },
+    {
+      "from": "gpu-cluster-ml-research",
+      "to": "s3-ml-research",
+      "relation": "read_write",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm gpu_utilization ~69% on 5x p3 cluster (i-0fbgpu*) in ml-research; GPU training reads/writes datasets in S3."
+    },
+    {
+      "from": "gpu-cluster-ml-research",
+      "to": "ebs-ml-research",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "p3 GPU instances attach EBS volumes (EC2 CreateVolume + disk_io_ops) in ml-research."
+    },
+    {
+      "from": "ec2-dev",
+      "to": "ebs-dev",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "AmazonEC2 CreateVolume operation in dev."
+    },
+    {
+      "from": "ec2-dev",
+      "to": "cloudwatch-dev",
+      "relation": "emit_metrics",
+      "confidence": "High",
+      "reason": "EC2 and CloudWatch both present in dev."
+    },
+    {
+      "from": "ec2-dev",
+      "to": "rds-dev",
+      "relation": "query",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm RDS database_connections ~24 in dev; EC2 connects to RDS."
+    },
+    {
+      "from": "lambda-dev",
+      "to": "cloudwatch-dev",
+      "relation": "log",
+      "confidence": "High",
+      "reason": "Lambda Invoke + CloudWatch PutLogEvents (log-group-debug-runaway) in dev; Lambda to CloudWatch Logs."
+    },
+    {
+      "from": "lambda-dev",
+      "to": "rds-dev",
+      "relation": "query",
+      "confidence": "Low",
+      "reason": "Lambda and RDS co-located in dev; possible Lambda to RDS access (no ARN evidence, best-practice assumption)."
+    },
+    {
+      "from": "ec2-staging",
+      "to": "ebs-staging",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "AmazonEC2 CreateVolume operation in staging."
+    },
+    {
+      "from": "ec2-staging",
+      "to": "cloudwatch-staging",
+      "relation": "emit_metrics",
+      "confidence": "High",
+      "reason": "EC2 and CloudWatch both present in staging."
+    },
+    {
+      "from": "ec2-staging",
+      "to": "rds-staging",
+      "relation": "query",
+      "confidence": "High",
+      "reason": "CloudWatch metrics confirm RDS database_connections ~26 in staging; EC2 connects to RDS."
+    },
+    {
+      "from": "eks-staging",
+      "to": "cloudwatch-staging",
+      "relation": "emit_metrics",
+      "confidence": "Medium",
+      "reason": "EKS to CloudWatch Container Insights; both in staging."
+    },
+    {
+      "from": "eks-staging",
+      "to": "rds-staging",
+      "relation": "query",
+      "confidence": "Medium",
+      "reason": "EKS workloads and RDS co-located in staging."
+    },
+    {
+      "from": "eks-staging",
+      "to": "ebs-staging",
+      "relation": "attach",
+      "confidence": "Medium",
+      "reason": "EKS worker volumes via EC2 CreateVolume in staging."
+    }
+  ],
+  "entrypoints": [
+    "alb-prod-core"
+  ],
+  "critical_paths": [
+    [
+      "alb-prod-core",
+      "ec2-prod-core",
+      "rds-prod-core"
+    ],
+    [
+      "alb-prod-core",
+      "ec2-prod-core",
+      "elasticache-prod-core"
+    ],
+    [
+      "alb-prod-core",
+      "eks-prod-core",
+      "rds-prod-core"
+    ],
+    [
+      "kinesis-prod-payments",
+      "ec2-prod-payments",
+      "dynamodb-prod-payments"
+    ],
+    [
+      "msk-prod-payments",
+      "ec2-prod-payments",
+      "rds-prod-payments"
+    ],
+    [
+      "athena-data-analytics",
+      "s3-data-analytics"
+    ],
+    [
+      "gpu-cluster-ml-research",
+      "s3-ml-research"
+    ],
+    [
+      "sagemaker-ml-research",
+      "s3-ml-research"
+    ]
+  ]
+}

@@ -40,16 +40,16 @@ This document records the architectural decisions made by the AI Team for the Fi
 
 ---
 
-## ADR-003 - DynamoDB Caching for Cost Explorer API Results
+## ADR-003 - S3 Caching for Cost Explorer API Results
 
 - **Status**: Accepted
 - **Date**: 2026-06-24
 - **Context**: The AWS Cost Explorer API has a strict rate limit of 5 requests per second. Repeated calls for historical baseline calculations can lead to throttling.
-- **Decision**: We chose to cache Cost Explorer daily aggregates in Amazon DynamoDB with a TTL of 7 days for hot data, and archive them in S3 for historical analysis. The AI Engine reads from the cache rather than querying the Cost Explorer API directly.
+- **Decision**: We chose to cache Cost Explorer daily aggregates in Amazon S3 with a TTL of 7 days for hot data, and archive them in S3 for historical analysis. The AI Engine reads from the cache rather than querying the Cost Explorer API directly.
 - **Consequence**:
   - ✅ Avoids AWS API rate-limiting issues.
   - ✅ Reduces overall API latency to < 10ms for historical baseline retrievals.
-  - ⚠️ Increases storage cost slightly (~$1.00/month for DynamoDB).
+  - ⚠️ Increases storage cost slightly (~$1.00/month for S3).
 - **Alternatives considered**:
   - *Option A: Direct API calling*. Rejected because of AWS throttling risks.
   - *Option B: S3 storage only*. Rejected because S3 retrieval latency is too high for interactive dashboards.

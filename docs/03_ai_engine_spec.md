@@ -38,8 +38,8 @@ Hệ thống FinOps Watch sử dụng mô hình **Hybrid Architecture** (Mô hì
 
 - **Tenant identification**: Xác định tenant thông qua Header `X-Tenant-Id` đính kèm bắt buộc trong mọi request. Giá trị này ánh xạ trực tiếp tới AWS Account ID của tenant.
 - **Context isolation**: Thiết kế per-request scoping. Bộ nhớ tạm thời của mô hình trong quá trình suy luận (In-flight memory) bị giải phóng hoàn toàn ngay sau khi kết thúc request. Không có bất kỳ cơ chế lưu cache hoặc chia sẻ dữ liệu ngữ cảnh (context bleed) giữa các tenant.
-- **State storage**: Toàn bộ dữ liệu bất thường và audit trail được lưu vào Amazon DynamoDB sử dụng mô hình Partition Key là `tenant_id` và Sort Key là `audit_id` hoặc `timestamp`.
-- **Audit log**: Ghi nhận 100% các cuộc gọi API và hành động của mô hình vào DynamoDB Ledger, tự động đính kèm thông tin định danh `tenant_id` phục vụ kiểm toán tuân thủ.
+- **State storage**: Toàn bộ dữ liệu bất thường và audit trail được lưu vào Amazon S3 sử dụng mô hình Partition Key là `tenant_id` và Sort Key là `audit_id` hoặc `timestamp`.
+- **Audit log**: Ghi nhận 100% các cuộc gọi API và hành động của mô hình vào S3 Ledger, tự động đính kèm thông tin định danh `tenant_id` phục vụ kiểm toán tuân thủ.
 
 ## 4. Prompt engineering / RAG strategy
 
@@ -55,9 +55,10 @@ Strictly adhere to the following safety boundaries (RED BOUNDARIES):
 
 For each anomaly, determine the Root Cause, calculate waste metrics, and select the immediate action based on the environment:
 - prod: strategy is 'tag-for-review' with action 'tag-for-review' (CLI: aws ec2 create-tags or aws rds add-tags-to-resource).
-- staging: strategy is 'time-gated-countdown' (4h time lock). Immediate action is 'tag-for-review' (CLI: aws ec2 create-tags).
+- staging: strategy is 'time-gated-countdown' (4h time lock). Immediate action is 'tag-for-review' (CLI: aws ec2 create-tags) and if no SRE extension is received, auto-shutdown triggers.
 - dev/sandbox: if confidence >= 0.80, immediate action is 'auto-shutdown' (CLI: aws ec2 stop-instances).
-- ml-research: if confidence >= 0.80, immediate action is 'auto-shutdown' (CLI: aws sagemaker stop-notebook-instance).
+- staging: if confidence >= 0.90 and grounding check passes, immediate action is 'auto-shutdown' after 4h countdown (CLI: aws rds stop-db-instance).
+- ml-research: if confidence >= 0.90, immediate action is 'auto-shutdown' (CLI: aws sagemaker stop-notebook-instance).
 - data-analytics: strategy is 'quota-cap' via Service Quotas API (CLI: aws service-quotas request-service-quota-increase).
 
 You must format the response as a valid JSON object matching the requested schema. Ensure all CLI commands are correct.
@@ -122,9 +123,9 @@ Không áp dụng RAG trực tiếp vào runtime suy luận để tối ưu hóa
 | Principle | Rationale | Enforcement |
 |---|---|---|
 | **Explainability** | Quyết định chi tiêu phải minh bạch cho Finance. | Bắt buộc có trường `executive_summary` bằng ngôn ngữ tự nhiên. |
-| **Auditability** | Đảm bảo lưu vết mọi tác động hạ tầng. | Ghi nhận audit trail snapshot trước/sau và CLI command vào DynamoDB. |
+| **Auditability** | Đảm bảo lưu vết mọi tác động hạ tầng. | Ghi nhận audit trail snapshot trước/sau và CLI command vào S3. |
 | **Confidence-gated** | Tránh sai sót do AI dự đoán kém. | Chỉ auto-shutdown ở Dev/ML khi Confidence Score $\ge 0.80$. |
-| **Reversibility** | Luôn có đường lùi khi tắt nhầm. | Bắt buộc sinh kèm rollback CLI command tương ứng trong DynamoDB. |
+| **Reversibility** | Luôn có đường lùi khi tắt nhầm. | Bắt buộc sinh kèm rollback CLI command tương ứng trong S3. |
 | **Tenant isolation** | Bảo vệ bí mật thông tin khách hàng. | Scoping context per-request, không lưu giữ history chéo. |
 | **Cost guard** | Kiểm soát ngân sách chạy AI Engine. | Tích hợp Circuit Breaker tự ngắt cuộc gọi Bedrock khi chạm mốc $50/tháng. |
 
@@ -139,10 +140,10 @@ Không áp dụng RAG trực tiếp vào runtime suy luận để tối ưu hóa
 | NFR ID | Category | Requirement | Control | Evidence | Owner |
 |---|---|---|---|---|---|
 | MG-01 | Governance | Quyết định giải trình được | Giải thích RCA bằng ngôn ngữ tự nhiên thân thiện Finance | Trường `executive_summary` | Nhóm AI 2 |
-| MG-02 | Governance | Vết kiểm toán đầy đủ | 100% cuộc gọi AI được lưu vào audit store | Bảng DynamoDB Audit | Nhóm AI 2 |
+| MG-02 | Governance | Vết kiểm toán đầy đủ | 100% cuộc gọi AI được lưu vào audit store | Bảng S3 Audit | Nhóm AI 2 |
 | MG-03 | Governance | Chốt chặn điểm tin cậy | Chỉ can thiệp tự động khi confidence $\ge 0.80$ | Code logic check | Nhóm AI 2 |
 | MG-04 | Performance | SLA thời gian phản hồi | Tổng thời gian suy luận và lưu DB < 30s | Log CloudWatch | Nhóm AI 2 |
-| MG-05 | Cost | Khống chế chi phí token | Giới hạn ngân sách Bedrock < $50/tháng | Counter DynamoDB | Nhóm AI 2 |
+| MG-05 | Cost | Khống chế chi phí token | Giới hạn ngân sách Bedrock < $50/tháng | Counter S3 | Nhóm AI 2 |
 | MG-06 | Reliability | Cơ chế Fallback an toàn | Bedrock sập tự động chuyển sang Rules Engine | Test case fallback | Nhóm AI 2 |
 | MG-07 | Compliance | Bảo mật thông tin PII | Anonymize email/phone/name | Cấu hình Guardrail | Nhóm AI 2 |
 | MG-08 | Drift | Kiểm soát phân phối dữ liệu | Định kỳ quét và phát hiện Data Drift hàng tuần | Log cron check | Nhóm AI 2 |
@@ -154,7 +155,7 @@ Mọi hành động can thiệp tự động (auto-containment) bắt buộc đi
 ```mermaid
 sequenceDiagram
     participant AI as AI Engine (Fargate)
-    participant DB as DynamoDB (Audit)
+    participant DB as S3 (Audit)
     participant CDO as CDO Platform (Worker)
     participant Res as Target Resource (AWS)
 
@@ -220,7 +221,7 @@ sequenceDiagram
 ## 7. Eval methodology
 
 - **Test set composition**: 10 scenarios hạch toán chi tiết bao gồm:
-  - 4 Happy path (Runaway training, Idle RDS database, Mis-tagged EC2, Normal weekly seasonality).
+  - 4 Happy path (Runaway training, Idle RDS database, untagged_spend EC2, Normal weekly seasonality).
   - 3 Edge cases (Noisy alert spike, Data lag CUR, Estimated billing).
   - 3 Adversarial/FP traps (Flash sale peak, Scheduled large data migration, System load test).
 - **Metrics tracked**:

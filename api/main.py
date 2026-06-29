@@ -10,9 +10,9 @@ app = FastAPI(
     description="Skeleton API for Task Force 2 (FinOps Watch) early CDO integration."
 )
 
-# ----------------------------------------------------
-# Pydantic Schemas matching the contract
-# ----------------------------------------------------
+
+
+
 
 class CESignal(BaseModel):
     date: str
@@ -67,11 +67,29 @@ class DetectRequest(BaseModel):
     s3_bucket_uri: Optional[str] = None
     resource_utilization_metrics: Optional[List[UtilizationMetric]] = None
 
+class AlertRouting(BaseModel):
+    finance: bool
+    engineering: bool
+
+class AnomalyItem(BaseModel):
+    anomaly_id: str
+    anomaly_type: str
+    severity: str
+    confidence_score: float
+    resource_id: str
+    environment: str
+    responsible_team: Optional[str] = None
+    unblended_cost_24h_usd: float
+    cost_ratio_to_7d_avg: float
+    ai_model_used: str
+    alert_routing: AlertRouting
+
 class DetectResponse(BaseModel):
     success: bool
-    status: str
     correlation_id: str
-    message: str
+    anomalies_detected: bool
+    anomalies_list: List[AnomalyItem]
+    error_message: Optional[str] = None
 
 class AnomalyContext(BaseModel):
     anomaly_id: str
@@ -187,9 +205,9 @@ class RollbackResponse(BaseModel):
     containment_locked: bool
     message: str
 
-# ----------------------------------------------------
-# Endpoint Implementations
-# ----------------------------------------------------
+
+
+
 
 @app.post("/v1/detect", response_model=DetectResponse)
 async def post_detect(
@@ -198,13 +216,30 @@ async def post_detect(
     x_idempotency_key: str = Header(..., alias="X-Idempotency-Key"),
     x_dry_run_mode: str = Header(..., alias="X-Dry-Run-Mode")
 ):
-    # Dummy async response returning processing status
+
     corr_id = str(uuid.uuid4())
     return DetectResponse(
         success=True,
-        status="processing",
         correlation_id=corr_id,
-        message="Dữ liệu telemetry đã được tiếp nhận thành công. Tiến trình phân tích bất thường đang được thực thi bất đồng bộ."
+        anomalies_detected=True,
+        anomalies_list=[
+            AnomalyItem(
+                anomaly_id="ANM-2026-0623A",
+                anomaly_type="runaway_usage",
+                severity="HIGH",
+                confidence_score=0.94,
+                resource_id="i-0abcd1234efgh5678",
+                environment="ml-research",
+                responsible_team="squad-ml-core",
+                unblended_cost_24h_usd=427.50,
+                cost_ratio_to_7d_avg=18.2,
+                ai_model_used="amazon.nova-pro-v1:0",
+                alert_routing=AlertRouting(
+                    finance=True,
+                    engineering=True
+                )
+            )
+        ]
     )
 
 @app.get("/v1/status/{id}")
@@ -212,50 +247,21 @@ async def get_status(
     id: str,
     x_tenant_id: str = Header(..., alias="X-Tenant-Id")
 ):
-    # If ID is UUID, treat as correlation_id (Case A - Detection status)
-    # If ID matches ANM format, treat as anomaly_id (Case B - Remediation status)
-    try:
-        uuid_obj = uuid.UUID(id)
-        # Case A: Detection Status Polling
-        return {
-            "status": "COMPLETED",
-            "anomalies_detected": True,
-            "anomalies_list": [
-                {
-                    "anomaly_id": "ANM-2026-0623A",
-                    "anomaly_type": "runaway_usage",
-                    "severity": "HIGH",
-                    "confidence_score": 0.94,
-                    "resource_id": "i-0abcd1234efgh5678",
-                    "environment": "ml-research",
-                    "responsible_team": "squad-ml-core",
-                    "unblended_cost_24h_usd": 427.50,
-                    "cost_ratio_to_7d_avg": 18.2,
-                    "ai_model_used": "amazon.nova-pro-v1:0",
-                    "alert_routing": {
-                        "finance": True,
-                        "engineering": True
-                    }
-                }
-            ],
-            "correlation_id": id
-        }
-    except ValueError:
-        # Case B: Remediation Status Polling
-        return {
-            "audit_id": id,
-            "status": "PENDING_APPROVAL",
-            "containment_locked": False,
-            "error_budget_remaining_pct": 97.3,
-            "actions_log": [
-                {
-                    "timestamp": datetime.utcnow().isoformat() + "Z",
-                    "action": "tag-for-review",
-                    "status": "DRY_RUN_COMPLETED",
-                    "actor": "finops-ai-engine-role"
-                }
-            ]
-        }
+
+    return {
+        "audit_id": id,
+        "status": "PENDING_APPROVAL",
+        "containment_locked": False,
+        "error_budget_remaining_pct": 97.3,
+        "actions_log": [
+            {
+                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "action": "tag-for-review",
+                "status": "DRY_RUN_COMPLETED",
+                "actor": "finops-ai-engine-role"
+            }
+        ]
+    }
 
 @app.post("/v1/decide", response_model=DecideResponse)
 async def post_decide(
@@ -341,7 +347,7 @@ async def get_health():
         "status": "healthy",
         "timestamp": datetime.utcnow().isoformat() + "Z",
         "services": {
-            "dynamodb": "connected",
+            "s3_audit_bucket": "connected",
             "bedrock_api": "accessible",
             "s3_cur_bucket": "reachable"
         }

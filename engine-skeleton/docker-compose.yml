@@ -1,0 +1,42 @@
+version: "3.9"
+
+services:
+  ai-engine:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: finops-watch-ai-engine:mock
+    container_name: finops-ai-engine
+    ports:
+      - "8080:8080"
+    environment:
+      - MOCK_ANOMALY_PROBABILITY=0.80
+      - MOCK_MAX_ANOMALIES=3
+      - CLOCK_SKEW_TOLERANCE_SECONDS=300
+      - DEBUG=false
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - finops-net
+
+  # Optional: local Swagger UI proxy (access docs without HTTPS requirement)
+  swagger-ui:
+    image: swaggerapi/swagger-ui:latest
+    container_name: finops-swagger
+    ports:
+      - "8081:8080"
+    environment:
+      - SWAGGER_JSON_URL=http://ai-engine:8080/openapi.json
+    depends_on:
+      - ai-engine
+    networks:
+      - finops-net
+
+networks:
+  finops-net:
+    driver: bridge

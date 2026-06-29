@@ -81,7 +81,7 @@ Quản lý thông tin nhạy cảm tập trung, cấm hardcode credentials trong
 |---|---|---|
 | `BEDROCK_API_KEY` | AWS Secrets Manager: `tf-2/ai-engine/bedrock` | API Key sơ cua (hoặc Token) nếu gọi qua API Gateway ngoài. Mặc định ưu tiên IAM Role. |
 | `AWS_REGION` | Environment Variable | Thiết lập mặc định: `ap-southeast-1` (Singapore) |
-| `DYNAMODB_TABLE_NAME` | Environment Variable | Tên bảng DynamoDB lưu audit trail cache |
+| `S3_TELEMETRY_BUCKET` | Environment Variable | Tên S3 bucket lưu trữ idempotency, audit logs, và features |
 
 > 🔒 **Quy tắc an toàn mạng:** Tuyệt đối không sử dụng IAM User static access key. Toàn bộ hạ tầng của CDO phải gán IAM Task Execution Role có gắn Policy cho phép truy cập Bedrock và Secrets Manager. Secrets Manager rotation policy được thiết lập tự động xoay vòng mỗi 30 ngày.
 
@@ -97,7 +97,7 @@ AI Engine chạy trong Private Subnet, ngăn chặn tấn công từ internet pu
 | **Load Balancer** | Internal Application Load Balancer (ALB) only. Cấm Internet-facing ALB. |
 | **Security Group** | `tf-2-ai-engine-sg` |
 | **Ingress Rules** | Chỉ cho phép giao thức HTTPS (port 8080/443) đi từ Security Group của CDO Worker/Platform gọi đến AI Engine |
-| **Egress Rules** | Chỉ cho phép đi ra Internet qua NAT Gateway tới Bedrock Endpoint (`bedrock.ap-southeast-1.amazonaws.com`) và các VPC Gateway Endpoints cho Secrets Manager + DynamoDB |
+| **Egress Rules** | Chỉ cho phép đi ra Internet qua NAT Gateway tới Bedrock Endpoint (`bedrock.ap-southeast-1.amazonaws.com`) và các VPC Gateway Endpoints cho Secrets Manager + S3 |
 | **DNS Resolution** | Sử dụng Route 53 Private Hosted Zone để phân giải tên miền nội bộ |
 
 ---

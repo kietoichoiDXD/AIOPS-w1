@@ -123,13 +123,13 @@ Khớp 1:1 với `X-Tenant-Id` và `X-Idempotency-Key` trong ai-api-contract.md 
     },
     "idempotency_key": {
       "type": "string",
-      "pattern": "^[0-9a-f-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}$",
-      "description": "Format: tenant_id:YYYY-MM-DD (reference: API Contract §4)"
+      "pattern": "^[a-f0-9-]{36}:[0-9]{4}-[0-9]{2}-[0-9]{2}:[a-z0-9-]+$",
+      "description": "Format: tenant_id:billing_period_date:batch_type (reference: API Contract §4)"
     },
     "ttl_expiry": {
       "type": "string",
       "format": "date-time",
-      "description": "Hết hạn sau 24h trong DynamoDB"
+      "description": "Hết hạn sau 24h theo Object Lifecycle Expiry trên S3"
     }
   },
   "required": ["tenant_id", "account_id", "account_name", "correlation_id", "idempotency_key"]
@@ -207,7 +207,7 @@ Dữ liệu tổng hợp vĩ mô. Map trực tiếp với schema cost_explorer_d
 | **Type** | Tabular aggregate (daily grain) |
 | **Frequency** | PULL 1 lần/ngày lúc 02:00 AM (EventBridge cron) |
 | **Emit point** | CDO gọi `aws ce get-cost-and-usage` → normalize → đóng gói JSON |
-| **Retention** | 7 ngày hot (DynamoDB cache), 30 ngày cold (S3) |
+| **Retention** | 7 ngày hot (S3 cache), 30 ngày cold (S3) |
 | **Used for** | Trend detection, account-level anomaly, baseline calculation |
 | **Emit SLA** | p99 < 60s từ CE API response → AI consumable |
 | **Volume SLA** | ~100-500 records/batch (6 accounts × ~20 services × 1 day) |
@@ -272,7 +272,7 @@ Dữ liệu tổng hợp vĩ mô. Map trực tiếp với schema cost_explorer_d
 > [!IMPORTANT]
 > **Dữ liệu ước tính**: Khi `is_estimated = true` ở 2 ngày gần nhất, AI Engine **PHẢI** hạ confidence score và **KHÔNG** kích hoạt auto-containment. CDO gửi kèm `telemetry_delay_event = true` khi CUR chưa finalized → AI Engine tạm hoãn batch, kiểm tra lại mỗi 1h (reference: 01_requirements.md §7 Q3).
 
-> **WHY cache DynamoDB**: Cost Explorer API rate limit 5 requests/second. CDO cache kết quả vào DynamoDB tránh vượt limit. AI Engine đọc cache khi cần baseline 7d/30d thay vì gọi CE trực tiếp (reference: ADR-003).
+> **WHY cache S3**: Cost Explorer API rate limit 5 requests/second. CDO cache kết quả vào S3 tránh vượt limit. AI Engine đọc cache từ S3 khi cần baseline 7d/30d thay vì gọi CE trực tiếp (reference: ADR-003).
 
 ---
 
@@ -778,7 +778,7 @@ Mọi signal payload phải comply các quy tắc sau:
 | Mất CloudWatch Metrics | `cloudwatch_status: MISSING` | AI chạy CUR-only detection. `confidence *= 0.5`. Containment = Dry-run/Alert-only. |
 | Pipeline CDO sập hoàn toàn | Sau 26h không nhận dữ liệu | AI phát cảnh báo P1 đỏ tới Slack cả hai nhóm. |
 | Dữ liệu ước tính (`is_estimated`) | `is_estimated = true` | AI giảm `confidence_score`. Không kích hoạt auto-containment. |
-| Cost Explorer rate limit | `cost_explorer_status: STALE` | CDO serve từ DynamoDB cache. AI ghi nhận `stale_data_used: true`. |
+| Cost Explorer rate limit | `cost_explorer_status: STALE` | CDO serve từ S3 cache. AI ghi nhận `stale_data_used: true`. |
 
 ---
 
@@ -788,7 +788,7 @@ Mọi signal payload phải comply các quy tắc sau:
   - *Resolved*: At-least-once OK cho tất cả. Idempotency Key xử lý dedup. Exactly-once phức tạp không cần thiết cho batch 24h.
 
 - [x] **Q2**: Encryption ngoài TLS chuẩn?
-  - *Resolved*: TLS 1.3 in-transit đủ. At-rest dùng AWS KMS (DynamoDB + S3). Không cần end-to-end encryption bổ sung.
+  - *Resolved*: TLS 1.3 in-transit đủ. At-rest dùng AWS KMS (S3 + S3). Không cần end-to-end encryption bổ sung.
 
 ---
 
@@ -801,3 +801,24 @@ Mọi signal payload phải comply các quy tắc sau:
 - docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
 - docs/04_eval_report.md — Backtest results, failure analysis, curveball impact.
 - docs/05_adrs.md — Architecture Decision Records (ADR-001 to ADR-005).
+
+---
+
+## 20. Telemetry State Store — S3-based Feature Store
+
+Để hỗ trợ các thuật toán phát hiện bất thường cần lookback window (như `idle_resource` >3 ngày và `gradual_drift` >4 tuần) mà không sử dụng cơ sở dữ liệu S3, AI Engine sử dụng một **S3-based Feature Store** nằm trong bucket `s3://company-cdo-telemetry/features/`:
+
+1. **Ghi nhận dữ liệu**: Với mỗi lượt chạy `POST /v1/detect`, AI Engine sẽ ghi nhận vector đặc trưng hàng ngày của từng tài nguyên dưới dạng file JSON tại:
+   `s3://company-cdo-telemetry/features/{resource_id}/{YYYY-MM-DD}.json`
+   Schema của tệp JSON đặc trưng:
+   ```json
+   {
+     "resource_id": "string",
+     "date": "YYYY-MM-DD",
+     "unblended_cost": 0.0,
+     "usage_amount": 0.0,
+     "usage_density_24h": 0.0,
+     "cpu_percent": 0.0
+   }
+   ```
+2. **Đọc dữ liệu lookback**: Khi chạy phân tích, AI Engine sẽ thực hiện list và get các file JSON trong thư mục `features/{resource_id}/` của 3 ngày gần nhất (đối với `idle_resource`) hoặc 30 ngày gần nhất (đối với `gradual_drift`) để tính toán thống kê rolling stats cục bộ trong RAM trước khi đưa ra quyết định.
