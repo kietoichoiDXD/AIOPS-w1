@@ -114,6 +114,8 @@ class BusinessContext(BaseModel):
     campaign_flag: bool = Field(..., description="True if a marketing campaign is active (benign-cost context)")
     load_test_flag: bool = Field(..., description="True if a load test is running (benign-cost context)")
     migration_flag: bool = Field(..., description="True if a data migration is running (benign-cost context)")
+    scheduled_backup_flag: bool = Field(False, description="True if a Finance-ticketed scheduled backup window is active (benign-cost context)")
+    batch_etl_flag: bool = Field(False, description="True if a recurring batch/ETL job window is active (benign-cost context)")
     active_users: int | None = Field(None, ge=0)
     orders_count: int | None = Field(None, ge=0)
 
@@ -129,6 +131,14 @@ class ComparisonWindow(BaseModel):
 
 class DetectRequest(BaseModel):
     """Request body for POST /v1/detect (contract v1.5.0 §5.1)."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _map_s3_pointer(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "s3_pointer" in data and "s3_bucket_uri" not in data:
+                data["s3_bucket_uri"] = data["s3_pointer"]
+        return data
 
     data_source_type: DataSourceType = Field(
         ..., description="RAW_JSON = inline data; S3_POINTER = S3 URI"

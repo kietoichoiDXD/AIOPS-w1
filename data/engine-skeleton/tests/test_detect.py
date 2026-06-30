@@ -74,6 +74,57 @@ class TestDetectSuccess:
         resp = client.post("/v1/detect", json=payload, headers=valid_headers)
         assert resp.status_code == 200
 
+    def test_s3_pointer_key_alias(self, client, valid_headers, business_context):
+        payload = {
+            "data_source_type": "S3_POINTER",
+            "business_context": business_context,
+            "s3_pointer": "s3://company-cdo-200000000012-telemetry/cur/cdo-02/2026-06-23.json.gz",
+        }
+        resp = client.post("/v1/detect", json=payload, headers=valid_headers)
+        assert resp.status_code == 200
+
+    def test_dynamodb_feature_store_override(self, monkeypatch, client, valid_headers, detect_payload):
+        mock_response = {
+            "Responses": {
+                "finops-feature-store-test": [
+                    {
+                        "resource_id": {"S": "i-0abcd1234efgh5678"},
+                        "date": {"S": "2026-06-23"},
+                        "rolling_avg": {"N": "10.0"},
+                        "rolling_std": {"N": "1.0"},
+                        "rolling_median": {"N": "10.0"},
+                        "rolling_mad": {"N": "0.5"},
+                        "slope_14d": {"N": "0.1"},
+                        "cost_pct_change_28d": {"N": "0.05"},
+                        "cpu_mean": {"N": "95.0"},
+                        "usage_density_24h": {"N": "0.99"},
+                        "peer_ratio": {"N": "1.0"},
+                        "age_days": {"N": "15"},
+                        "resource_tags_user_team": {"S": "overridden-team"},
+                        "resource_tags_user_owner": {"S": "overridden-owner"},
+                    }
+                ]
+            }
+        }
+        
+        class MockDDB:
+            def batch_get_item(self, **kwargs):
+                return mock_response
+                
+        monkeypatch.setenv("DYNAMODB_FEATURE_STORE_TABLE", "finops-feature-store-test")
+        monkeypatch.setattr("boto3.client", lambda service, region_name=None: MockDDB())
+        
+        # Set tags to None in payload to verify tag override when missing
+        detect_payload["aws_cur_line_items"][0]["resource_tags_user_team"] = None
+        detect_payload["aws_cur_line_items"][0]["resource_tags_user_owner"] = None
+
+        resp = client.post("/v1/detect", json=detect_payload, headers=valid_headers)
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["anomalies_detected"] is True
+        assert body["anomalies_list"][0]["responsible_team"] == "overridden-team"
+
+
     def test_data_confidence_present(self, client, valid_headers, detect_payload):
         body = client.post("/v1/detect", json=detect_payload, headers=valid_headers).json()
         assert body["data_confidence"] in ("HIGH", "LOW")

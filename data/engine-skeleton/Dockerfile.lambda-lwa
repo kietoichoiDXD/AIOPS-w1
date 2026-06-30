@@ -1,0 +1,30 @@
+# Lambda Web Adapter (LWA) variant — runs the UNMODIFIED uvicorn FastAPI app as a
+# Lambda function. The LWA extension proxies Lambda (Function URL / API Gateway)
+# invocations to the local HTTP server, so the same image also runs on ECS/App Runner.
+#
+# Use this if your team standardises on Lambda Web Adapter. (The :lambda image uses
+# Mangum + a native handler and ALSO supports S3-event / direct-invoke ingest; LWA is
+# HTTP-only.)
+FROM python:3.12-slim
+
+# Lambda Web Adapter extension (AWS official).
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4 /lambda-adapter /opt/extensions/lambda-adapter
+
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+# LWA config: port the app listens on + readiness probe so LWA waits for startup.
+ENV PORT=8080 \
+    AWS_LWA_PORT=8080 \
+    AWS_LWA_READINESS_CHECK_PATH=/health \
+    RCA_MODE=offline
+
+EXPOSE 8080
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080"]

@@ -1,0 +1,17 @@
+# Lambda container image for the FinOps Watch AI Engine.
+# Handler: app.lambda_handler.handler — supports HTTP (Mangum), S3-event ingest,
+# and direct-invoke ingest (s3_pointer / inline CUR). Bedrock Nova RCA built in.
+FROM public.ecr.aws/lambda/python:3.12
+
+# Runtime deps (same core as the HTTP image) + mangum for the HTTP path.
+COPY requirements.txt ${LAMBDA_TASK_ROOT}/
+RUN pip install --no-cache-dir -r requirements.txt "mangum>=0.17.0"
+
+# App code
+COPY app ${LAMBDA_TASK_ROOT}/app
+
+# Default offline RCA so the function works before Bedrock IAM is attached;
+# set RCA_MODE=bedrock (+ BEDROCK_REGION) in the function config for live LLM RCA.
+ENV RCA_MODE=offline
+
+CMD ["app.lambda_handler.handler"]

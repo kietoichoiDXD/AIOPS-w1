@@ -22,14 +22,8 @@ AWS CLI commands follow contract §7 Containment Actions enum exactly:
 from __future__ import annotations
 
 import datetime
-import json
 import logging
-import os
-import re
 from typing import TYPE_CHECKING
-
-import boto3
-from botocore.exceptions import ClientError
 
 from app.models.enums import (
     AnomalyType,
@@ -58,6 +52,7 @@ from app.schemas.decide import (
 from app.schemas.status import ActionLogEntry, RollbackRequest, RollbackResponse
 from app.schemas.verify import EscalationBundle, EscalationMetrics, VerifyRequest, VerifyResponse
 from app.services.base import DecisionService
+from app.services.ml import llm_rca
 
 if TYPE_CHECKING:
     from app.services.ml.statistical_detect_service import StatisticalDetectService
@@ -118,72 +113,6 @@ _TECH_CTX: dict[AnomalyType, dict] = {
 
 
 
-_RCA_REASON: dict[AnomalyType, dict[str, str]] = {
-    AnomalyType.sudden_spike: {
-        "robust_z": (
-            "Cost deviated >2.5σ (robust MAD z-score) above the 14-day rolling median "
-            "in a single day. Likely causes: debug logging left enabled, auto-scaling "
-            "misconfiguration, unexpected data ingress, or Lambda cold-start amplification."
-        ),
-        "cost_ratio_to_7d_avg": (
-            "Cost exceeded 5× the 7-day rolling average in a single billing period. "
-            "Likely: unexpected invocation burst or on-demand provisioning without quota."
-        ),
-        "peer_ratio": (
-            "Resource cost exceeded 3× the median for the same service and account on "
-            "the same day. Anomalous compared to peer resources in the same workload."
-        ),
-        "default": "Sudden cost spike detected via statistical analysis of rolling cost history.",
-    },
-    AnomalyType.gradual_drift: {
-        "slope_14d": (
-            "14-day cost trend slope is positive and 28-day cost grew >10%. "
-            "Likely: auto-scaling ratchet, data volume growth without quota, or "
-            "gradual resource leak accumulating over billing periods."
-        ),
-        "default": "Sustained upward cost drift over 14–28 days detected.",
-    },
-    AnomalyType.idle_resource: {
-        "usage_density_24h": (
-            "Resource billed continuously (24h/day) but usage_density_24h ≤ 5%. "
-            "Likely orphaned after migration, experiment, or forgotten dev/test instance."
-        ),
-        "cpu_mean": (
-            "CPU utilisation below 10% despite non-zero billing. "
-            "Resource appears idle — no active workload detected."
-        ),
-        "default": "Idle resource detected: billed but not utilised.",
-    },
-    AnomalyType.runaway_usage: {
-        "usage_density_24h": (
-            "usage_density_24h ≥ 95% — resource running at near-full capacity 24/7 "
-            "with no campaign, load-test, or migration flag set. "
-            "Suspected: abandoned training job or developer forgot to stop instance."
-        ),
-        "cpu_mean": (
-            "CPU utilisation >80% sustained with cost ratio above baseline. "
-            "Resource running flat-out without a scheduled workload justification."
-        ),
-        "default": "Runaway usage: resource at maximum capacity without scheduled workload.",
-    },
-    AnomalyType.untagged_spend: {
-        "resource_tags_user_team": (
-            "Resource incurring ≥$50/day with no team or owner tag. "
-            "Cannot route alert to responsible squad. "
-            "Apply mandatory tags (team, owner, cost_center) per tagging policy."
-        ),
-        "default": "Significant spend from untagged resource — cannot attribute to team.",
-    },
-}
-
-_MISSING_TAGS_MAP: dict[AnomalyType, list[str]] = {
-    AnomalyType.untagged_spend: ["resource_tags_user_team", "resource_tags_user_owner"],
-    AnomalyType.runaway_usage:  [],
-    AnomalyType.idle_resource:  [],
-    AnomalyType.sudden_spike:   [],
-    AnomalyType.gradual_drift:  [],
-}
-
 _SLACK_CHANNELS: dict[str, str] = {
     "prod":           "#finops-alert-prod",
     "prod-core":      "#finops-alert-prod",
@@ -198,16 +127,17 @@ _SLACK_CHANNELS: dict[str, str] = {
 
 
 
-def _containment_action(env: str, anomaly_type: AnomalyType, resource_id: str) -> ContainmentAction:
+def _containment_action(env: str, anomaly_type: AnomalyType, resource_id: str, confidence: float) -> ContainmentAction:
     prod_envs = {"prod", "prod-core", "prod-payments"}
     if env in prod_envs:
         return ContainmentAction.tag_for_review
     if env == "staging":
         return ContainmentAction.time_gated_countdown
-    if env in {"dev", "sandbox"}:
-        return ContainmentAction.auto_shutdown
-    if env == "ml-research":
-        return ContainmentAction.auto_shutdown
+    if env in {"dev", "sandbox", "ml-research"}:
+        if confidence >= 0.80:
+            return ContainmentAction.auto_shutdown
+        else:
+            return ContainmentAction.tag_for_review
     if env == "data-analytics":
         return ContainmentAction.quota_cap
     return ContainmentAction.tag_for_review
@@ -308,182 +238,21 @@ def _build_rollback(action: ContainmentAction, resource_id: str) -> RollbackPayl
     )
 
 
-def _extract_driver(ai_model_used: str) -> str:
-    """Parse driver_feature from ai_model_used = 'statistical:driver_feature'."""
-    if ":" in ai_model_used:
-        parts = ai_model_used.split(":")
-        return parts[-1]
-    return "cost_ratio_to_7d_avg"
+_DEFAULT_DRIVER: dict[AnomalyType, str] = {
+    AnomalyType.sudden_spike:   "cost_ratio_to_7d_avg",
+    AnomalyType.gradual_drift:  "slope_14d",
+    AnomalyType.idle_resource:  "usage_density_24h",
+    AnomalyType.runaway_usage:  "usage_density_24h",
+    AnomalyType.untagged_spend: "resource_tags_user_team",
+}
 
 
-def _build_rca(anomaly_type: AnomalyType, driver_feature: str) -> RootCauseAnalysis:
-    reasons = _RCA_REASON.get(anomaly_type, {})
-    reason = reasons.get(driver_feature) or reasons.get("default", "Cost anomaly detected.")
-    missing_tags = _MISSING_TAGS_MAP.get(anomaly_type, [])
-    return RootCauseAnalysis(
-        primary_driver_feature=driver_feature,
-        technical_reason=reason,
-        missing_mandatory_tags=missing_tags,
-    )
+def _default_driver(anomaly_type: AnomalyType) -> str:
+    """Fallback driver feature for ad-hoc decide calls with no prior detect record."""
+    return _DEFAULT_DRIVER.get(anomaly_type, "cost_ratio_to_7d_avg")
 
 
-_bedrock_client = None
-
-def _get_bedrock_client():
-    global _bedrock_client
-    if _bedrock_client is None:
-        region = os.environ.get("BEDROCK_REGION", "us-east-1")
-        _bedrock_client = boto3.client("bedrock-runtime", region_name=region)
-    return _bedrock_client
-
-
-def _build_nova_rca_system_prompt() -> str:
-    return (
-        "Ban la chuyen gia FinOps cap cao voi 10 nam kinh nghiem quan ly chi phi dam may AWS.\n"
-        "Nhiem vu: Phan tich du lieu chi phi AWS va xac dinh nguyen nhan goc re (Root Cause)\n"
-        "bang ngon ngu tai chinh ro rang, de hieu cho CFO va Finance team.\n"
-        "TUYET DOI khong dung cac thuat ngu toan hoc nhu: robust_z, rolling window, gradient.\n"
-        "Khi owner tag bi MISSING: can xem xet day la dau hieu vi pham Tag Policy cua doanh nghiep,\n"
-        "nhung van nen phan tich them cac signal khac (usage_density, cost_ratio) de xac dinh root cause chinh xac nhat.\n"
-        "Vi du: neu resource vua missing owner tag vua idle -> root_cause = 'Idle Resource', missing_tags = ['owner'].\n"
-        "Chi tra ve JSON thuan tuy, khong them markdown, khong them giai thich ngoai JSON."
-    )
-
-
-def _build_nova_rca_user_prompt(record: dict) -> str:
-    owner_val = record.get("resource_tags_user_owner")
-    owner_missing = (owner_val is None or str(owner_val).strip().upper() in ("", "NAN", "NONE", "MISSING"))
-    owner_display = "MISSING - vi pham Tag Policy cong ty" if owner_missing else str(owner_val)
-
-    cost_24h = record.get("line_item_unblended_cost", 0.0)
-    cost_ratio = record.get("cost_ratio_to_7d_avg", 1.0)
-    usage_density = record.get("usage_density_24h", 0.5)
-    cpu_mean = record.get("cpu_mean", 50.0)
-    spike = record.get("absolute_cost_spike", 0.0)
-    monthly_proj = round(cost_24h * 30, 2)
-
-    prompt = f"""Du lieu anomaly can phan tich:
-- Resource ID   : {record.get('resource_id', 'unknown')}
-- AWS Service   : {record.get('line_item_product_code', 'unknown')}
-- Moi truong    : {record.get('environment', 'unknown')}
-- Chi phi 24h   : ${cost_24h:.2f} USD
-- Du bao/thang  : ${monthly_proj:.2f} USD
-- So baseline   : {cost_ratio:.1f}x so voi trung binh 7 ngay truoc
-- Chi phi tang dot bien : ${spike:.2f} USD (so voi muc binh thuong)
-- Usage density : {usage_density:.2f}  (0 = khong chay, 1.0 = chay 24/24)
-- CPU trung binh: {cpu_mean:.1f}%
-- Owner tag     : {owner_display}
-- Team tag      : {record.get('resource_tags_user_team', 'unknown')}
-
-Hay phan tich va tra ve CHINH XAC JSON sau (khong them gi ngoai JSON):
-{{
-  "primary_driver_feature": "<ten signal chinh gay ra anomaly, vi du: usage_density_24h>",
-  "root_cause_category": "<mot trong: Idle Resource | Mis-tagged Spend | Cost Spike | Runaway Job | Other>",
-  "finance_summary": "<1-2 cau tom tat cho CFO, dung ngon ngu tai chinh, kem con so cu the>",
-  "technical_reason": "<giai thich ky thuat chi tiet cho Engineering team>",
-  "missing_mandatory_tags": ["<cac tag bi thieu, vi du: resource_tags_user_owner>"],
-  "risk_level": "<Low | Medium | High | Critical>"
-}}"""
-    return prompt
-
-
-def _call_nova_pro(system_prompt: str, user_prompt: str) -> str:
-    client = _get_bedrock_client()
-    body = json.dumps({
-        "system": [{"text": system_prompt}],
-        "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
-        "inferenceConfig": {
-            "maxTokens": 512,
-            "temperature": 0.1,
-        },
-    })
-    response = client.invoke_model(
-        modelId="amazon.nova-pro-v1:0",
-        body=body,
-        contentType="application/json",
-        accept="application/json",
-    )
-    resp_body = json.loads(response["body"].read())
-    return resp_body["output"]["message"]["content"][0]["text"]
-
-
-def _parse_rca_response(raw_text: str) -> dict:
-    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
-    if fence_match:
-        json_str = fence_match.group(1)
-    else:
-        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
-        if not match:
-            raise ValueError("No JSON block found in Bedrock response")
-        json_str = match.group()
-    return json.loads(json_str)
-
-
-def _build_mitigation_prompt(record: dict, rca: dict) -> str:
-    env = record.get("environment", "dev")
-    confidence = record.get("confidence_score", 0.90)
-    service = record.get("line_item_product_code", "unknown")
-    resource = record.get("resource_id", "unknown")
-    root_cause = rca.get("root_cause_category", "Other")
-    risk = rca.get("risk_level", "Medium")
-
-    return f"""Thong tin anomaly:
-- Resource ID   : {resource}
-- AWS Service   : {service}
-- Moi truong    : {env}
-- Confidence    : {confidence:.2f}
-- Root Cause    : {root_cause}
-- Risk Level    : {risk}
-
-Ma tran hanh dong bat buoc (KHONG duoc sai lech):
-- prod           : chi tag-for-review + slack. TUYET DOI khong stop/terminate.
-- staging        : tag + time-lock 4h (14400s). Fallback stop sau 4h neu khong co phan hoi.
-- dev/sandbox    : neu confidence >= 0.80 -> stop instance. Neu < 0.80 -> tag only.
-- ml-research    : neu confidence >= 0.80 -> stop sagemaker notebook. Neu < 0.80 -> tag only.
-- data-analytics : quota-cap qua Service Quotas API. KHONG stop/terminate.
-
-Rollback: moi action stop phai kem rollback command tuong ung (start/resume).
-
-Tra ver CHINH XAC JSON sau, khong them gi ngoai JSON:
-{{
-  "strategy": "<ten chien luoc ngan gon>",
-  "immediate_action": "<tag-for-review | stop-instance | stop-notebook | quota-cap | tag-only>",
-  "cli_commands": ["<aws cli command 1>", "<aws cli command 2 neu can>"],
-  "rollback_command": "<aws cli command de undo action tren>",
-  "slack_message": "<noi dung thong bao Slack ngan gon cho team>",
-  "enforcement_countdown": {{
-    "enabled": <true hoac false>,
-    "time_lock_seconds": <0 hoac 14400>,
-    "fallback_action": "<none hoac schedule-shutdown>"
-  }},
-  "requires_human_approval": <true hoac false>
-}}"""
-
-
-def _call_nova_lite(system_prompt: str, user_prompt: str) -> str:
-    client = _get_bedrock_client()
-    body = json.dumps({
-        "system": [{"text": system_prompt}],
-        "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
-        "inferenceConfig": {
-            "maxTokens": 512,
-            "temperature": 0.0,
-        },
-    })
-    response = client.invoke_model(
-        modelId="amazon.nova-lite-v1:0",
-        body=body,
-        contentType="application/json",
-        accept="application/json",
-    )
-    resp_body = json.loads(response["body"].read())
-    return resp_body["output"]["message"]["content"][0]["text"]
-
-
-def _parse_mitigation_response(raw_text: str) -> dict:
-    return _parse_rca_response(raw_text)
-
-
+_PROD_ENVS = {"prod", "prod-core", "prod-payments"}
 
 
 class ProductionDecisionService(DecisionService):
@@ -508,9 +277,9 @@ class ProductionDecisionService(DecisionService):
     def decide(self, request: DecideRequest, locked: bool = False) -> DecideResponse:
         ctx = request.anomaly_context
         env = ctx.environment.value
-        driver = _extract_driver(ctx.anomaly_type.value)
 
-        # Get raw anomaly record
+        # Get raw anomaly record (falls back to a synthetic record for ad-hoc
+        # decide calls that never went through /v1/detect).
         record = self._detect.get_anomaly_raw(ctx.anomaly_id)
         if not record:
             record = {
@@ -528,61 +297,26 @@ class ProductionDecisionService(DecisionService):
                 "database_connections": 0.0,
             }
 
-        effective_dry_run = request.dry_run_mode or locked
-        
-        # Determine Containment Action using LLM
-        use_mock = os.environ.get("BEDROCK_MOCK", "false").lower() == "true"
-        mitigation_dict = None
-        rca_dict = None
-        
-        # 1. LLM Root Cause Analysis
-        rca_obj = None
-        if not use_mock:
-            try:
-                system_prompt = _build_nova_rca_system_prompt()
-                user_prompt = _build_nova_rca_user_prompt(record)
-                raw_text = _call_nova_pro(system_prompt, user_prompt)
-                rca_dict = _parse_rca_response(raw_text)
-                
-                # Enforce Tag Policy
-                owner_val = record.get("resource_tags_user_owner")
-                owner_missing = (owner_val is None or str(owner_val).strip().upper() in ("", "NAN", "NONE", "MISSING"))
-                if owner_missing:
-                    tags = rca_dict.setdefault("missing_mandatory_tags", [])
-                    if "resource_tags_user_owner" not in tags:
-                        tags.append("resource_tags_user_owner")
-                    rca_dict["risk_level"] = "High"
-                
-                rca_obj = RootCauseAnalysis(
-                    primary_driver_feature=rca_dict.get("primary_driver_feature", driver),
-                    technical_reason=rca_dict.get("technical_reason", "LLM-generated root cause analysis."),
-                    missing_mandatory_tags=rca_dict.get("missing_mandatory_tags", []),
-                )
-            except Exception as e:
-                logger.warning("[RCA] Bedrock failed: %s. Using rule-based fallback.", e)
-                
-        if rca_obj is None:
-            rca_obj = _build_rca(ctx.anomaly_type, driver)
+        confidence = float(record.get("confidence_score", 0.90))
 
-        # 2. LLM Mitigation Action
-        if not use_mock and not locked:
-            try:
-                mitigation_system = (
-                    "Ban la FinOps Automation Engineer. "
-                    "Nhiem vu: chon dung hanh dong xu ly theo ma tran 5 moi truong AWS. "
-                    "Tuan thu nghiem ngat: prod chi duoc tag, khong bao gio tu dong tat may. "
-                    "Chi tra ve JSON thuan tuy."
-                )
-                rca_category = rca_dict.get("root_cause_category", "Other") if rca_dict else "Other"
-                risk_level = rca_dict.get("risk_level", "Medium") if rca_dict else "Medium"
-                mitigation_user = _build_mitigation_prompt(record, {
-                    "root_cause_category": rca_category,
-                    "risk_level": risk_level
-                })
-                raw_text_lite = _call_nova_lite(mitigation_system, mitigation_user)
-                mitigation_dict = _parse_mitigation_response(raw_text_lite)
-            except Exception as e:
-                logger.warning("[Mitigation] Bedrock Lite failed: %s. Using rule-based fallback.", e)
+        # Driver feature: prefer what the detector emitted; else a
+        # type-appropriate default (fixes the old anomaly_type mis-parse).
+        driver = record.get("driver_feature") or _default_driver(ctx.anomaly_type)
+
+        effective_dry_run = request.dry_run_mode or locked
+
+        # 1. Root Cause Analysis — LLM (Bedrock Nova Pro) with a deterministic
+        #    offline fallback. Never raises; always returns the rich RCA dict.
+        rca_dict = llm_rca.analyze_root_cause(record, ctx.anomaly_type, driver)
+        rca_obj = RootCauseAnalysis(
+            primary_driver_feature=rca_dict.get("primary_driver_feature", driver),
+            technical_reason=rca_dict.get("technical_reason", "Root cause analysis."),
+            missing_mandatory_tags=rca_dict.get("missing_mandatory_tags", []),
+        )
+
+        # 2. Mitigation action — LLM (Nova Lite) refinement; None in offline mode
+        #    or on failure, in which case the deterministic env matrix is used.
+        mitigation_dict = None if locked else llm_rca.recommend_mitigation(record, rca_dict)
 
         # Parse or fallback Action Plan, Applied, Rollback
         action_mapped = False
@@ -597,7 +331,15 @@ class ProductionDecisionService(DecisionService):
                     action = ContainmentAction.time_gated_countdown
                 else:
                     action = ContainmentAction.tag_for_review
-                    
+
+                # Hard safety clamp: prod environments can NEVER be auto-shut-down
+                # or quota-capped, regardless of what the LLM proposes (contract §7).
+                if env in _PROD_ENVS:
+                    action = ContainmentAction.tag_for_review
+                elif env in {"dev", "sandbox", "ml-research"} and action == ContainmentAction.auto_shutdown:
+                    if confidence < 0.80:
+                        action = ContainmentAction.tag_for_review
+
                 plan = _build_action_plan(action, ctx.resource_id)
                 cli_cmds = mitigation_dict.get("cli_commands", [])
                 cli_cmd = cli_cmds[0] if cli_cmds else ""
@@ -620,6 +362,12 @@ class ProductionDecisionService(DecisionService):
                 else:
                     rb_type = RollbackActionType.remove_aws_tag
                     
+                # In prod, never trust an LLM-supplied CLI command — fall back to
+                # the deterministic tag-for-review command built from the clamped action.
+                if env in _PROD_ENVS:
+                    cli_cmd = ""
+                    rollback_cmd = ""
+
                 applied = AppliedPayload(
                     action_type=action_type,
                     aws_cli_command=cli_cmd or _build_applied(action, ctx.resource_id, ctx.anomaly_id).aws_cli_command
@@ -637,7 +385,7 @@ class ProductionDecisionService(DecisionService):
             if locked:
                 action = ContainmentAction.tag_for_review
             else:
-                action = _containment_action(env, ctx.anomaly_type, ctx.resource_id)
+                action = _containment_action(env, ctx.anomaly_type, ctx.resource_id, confidence)
             plan = _build_action_plan(action, ctx.resource_id)
             applied = _build_applied(action, ctx.resource_id, ctx.anomaly_id)
             rollback = _build_rollback(action, ctx.resource_id)

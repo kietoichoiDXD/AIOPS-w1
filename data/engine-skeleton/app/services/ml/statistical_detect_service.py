@@ -52,17 +52,33 @@ _status_store: dict[str, RemediationStatusResponse] = {}
 _anomalies_registry: dict[str, dict] = {}
 
 
-ROBUST_Z_THRESHOLD = 2.5
-COST_RATIO_THRESHOLD = 5.0
-DRIFT_SLOPE_THRESHOLD = 0.0
-IDLE_USAGE_DENSITY = 0.05
-IDLE_CPU_THRESHOLD = 10.0
-RUNAWAY_USAGE_DENSITY = 0.95
-RUNAWAY_COST_RATIO = 1.5
-UNTAGGED_COST_FLOOR = 50.0
-PEER_RATIO_THRESHOLD = 3.0
-YOUNG_RESOURCE_MAX_AGE = 14
-YOUNG_ABSOLUTE_COST_FLOOR = 150.0
+# Statistical guardrail thresholds — NOT hard-coded: each is overridable via env so
+# production can tune per workload WITHOUT a code change / redeploy. These are the
+# high-recall safety net; the *primary* anomaly probability comes from the XGBoost/HGB
+# overlay whose decision threshold is DATA-TUNED at training time (carried in the model
+# bundle), and the LLM (Bedrock Nova) provides context-aware RCA + action on top.
+# Set DETECT_* env vars (or leave unset to use the calibrated defaults below).
+import os as _os
+
+
+def _envf(name: str, default: float) -> float:
+    try:
+        return float(_os.getenv(name, default))
+    except (TypeError, ValueError):
+        return default
+
+
+ROBUST_Z_THRESHOLD       = _envf("DETECT_ROBUST_Z_THRESHOLD", 2.5)
+COST_RATIO_THRESHOLD     = _envf("DETECT_COST_RATIO_THRESHOLD", 5.0)
+DRIFT_SLOPE_THRESHOLD    = _envf("DETECT_DRIFT_SLOPE_THRESHOLD", 0.0)
+IDLE_USAGE_DENSITY       = _envf("DETECT_IDLE_USAGE_DENSITY", 0.05)
+IDLE_CPU_THRESHOLD       = _envf("DETECT_IDLE_CPU_THRESHOLD", 10.0)
+RUNAWAY_USAGE_DENSITY    = _envf("DETECT_RUNAWAY_USAGE_DENSITY", 0.95)
+RUNAWAY_COST_RATIO       = _envf("DETECT_RUNAWAY_COST_RATIO", 1.5)
+UNTAGGED_COST_FLOOR      = _envf("DETECT_UNTAGGED_COST_FLOOR", 50.0)
+PEER_RATIO_THRESHOLD     = _envf("DETECT_PEER_RATIO_THRESHOLD", 3.0)
+YOUNG_RESOURCE_MAX_AGE   = int(_envf("DETECT_YOUNG_RESOURCE_MAX_AGE", 14))
+YOUNG_ABSOLUTE_COST_FLOOR = _envf("DETECT_YOUNG_ABSOLUTE_COST_FLOOR", 150.0)
 
 
 
@@ -89,17 +105,42 @@ def _severity(anomaly_type: AnomalyType, cost: float, ratio: float) -> Severity:
 
 
 
+# Finance-ticketed benign operations the CDO signs off on via business_context.
+# A recurring scheduled backup / weekly ETL produces a real cost+usage bump that
+# the cost-spike detectors would otherwise flag (the T1/T3 false positives). These
+# flags suppress the COST-spike mechanisms only — tag-policy (untagged_spend) is a
+# separate concern and is intentionally NOT suppressed.
+_BENIGN_FLAGS = (
+    "campaign_flag", "load_test_flag", "migration_flag",
+    "scheduled_backup_flag", "batch_etl_flag",
+)
+
+
+def _is_benign(business_context: dict | None) -> bool:
+    """True if the CDO marked this window as a known-legitimate operation."""
+    bc = business_context or {}
+    return any(bc.get(flag) for flag in _BENIGN_FLAGS)
+
+
 def _detect_sudden_spike(
     cost: float,
     rolling_avg: float,
     rolling_std: float,
     rolling_median: float,
     rolling_mad: float,
+    business_context: dict | None = None,
 ) -> tuple[bool, float, str]:
     """
     Sudden spike: cost far above recent history in a single day.
     Uses robust_z (MAD-based) to avoid sensitivity to prior outliers.
+
+    A Finance-ticketed benign window (scheduled backup, weekly ETL, migration,
+    campaign, load-test) suppresses the alert — a recurring backup spike is not
+    an anomaly (the T1 false positive).
     """
+    if _is_benign(business_context):
+        return False, 0.0, ""
+
     robust_z = 0.6745 * (cost - rolling_median) / (rolling_mad + 1e-6) if rolling_mad > 0 else 0.0
     cost_ratio = cost / (rolling_avg + 1e-6)
 
@@ -112,11 +153,17 @@ def _detect_sudden_spike(
 def _detect_gradual_drift(
     slope_14d: float,
     cost_pct_change_28d: float,
+    business_context: dict | None = None,
 ) -> tuple[bool, float, str]:
     """
     Gradual drift: sustained upward cost trend over 14–28 days.
     Positive slope_14d combined with 28-day growth > 10%.
+
+    A Finance-ticketed benign window (scheduled backup / ETL) suppresses it — a
+    recurring backup lifts the short-horizon slope without being a real drift.
     """
+    if _is_benign(business_context):
+        return False, 0.0, ""
     if slope_14d > DRIFT_SLOPE_THRESHOLD and cost_pct_change_28d > 0.10:
         score = min(0.99, 0.58 + 0.25 * min(cost_pct_change_28d, 1.0))
         return True, round(score, 2), "slope_14d"
@@ -166,11 +213,7 @@ def _detect_runaway_usage(
     without a legitimate business reason (campaign, load test, migration).
     """
 
-    if (
-        business_context.get("campaign_flag")
-        or business_context.get("load_test_flag")
-        or business_context.get("migration_flag")
-    ):
+    if _is_benign(business_context):
         return False, 0.0, ""
 
     density_runaway = usage_density >= RUNAWAY_USAGE_DENSITY
@@ -234,11 +277,7 @@ def _detect_young_resource_spike(
     """
     if age_days >= YOUNG_RESOURCE_MAX_AGE:
         return False, 0.0, ""
-    if (
-        business_context.get("campaign_flag")
-        or business_context.get("load_test_flag")
-        or business_context.get("migration_flag")
-    ):
+    if _is_benign(business_context):
         return False, 0.0, ""
 
     peer_hit = peer_ratio > PEER_RATIO_THRESHOLD
@@ -457,6 +496,8 @@ class StatisticalDetectService(DetectService):
                 "campaign_flag": getattr(bc, "campaign_flag", False),
                 "load_test_flag": getattr(bc, "load_test_flag", False),
                 "migration_flag": getattr(bc, "migration_flag", False),
+                "scheduled_backup_flag": getattr(bc, "scheduled_backup_flag", False),
+                "batch_etl_flag": getattr(bc, "batch_etl_flag", False),
             }
 
         confidence_penalty = 0.08 if request.telemetry_delay_event else 0.0
@@ -500,6 +541,55 @@ class StatisticalDetectService(DetectService):
                 logger.warning("XGBoost scoring failed, using statistical only: %s", e)
                 xgb_proba = None
 
+        # Load features from DynamoDB if table is set (contract Appendix F)
+        table_name = os.getenv("DYNAMODB_FEATURE_STORE_TABLE", "")
+        features_lut = {}
+        if table_name:
+            keys_to_fetch = []
+            for item in cur_items:
+                rid = item.line_item_resource_id
+                dt = item.line_item_usage_start_date[:10]
+                keys_to_fetch.append((rid, dt))
+            # Deduplicate keys
+            keys_to_fetch = list(set(keys_to_fetch))
+            
+            try:
+                import boto3
+                client = boto3.client("dynamodb", region_name=os.getenv("AWS_DEFAULT_REGION", "ap-southeast-1"))
+                for i in range(0, len(keys_to_fetch), 100):
+                    chunk = keys_to_fetch[i:i+100]
+                    request_items = {
+                        table_name: {
+                            "Keys": [
+                                {
+                                    "resource_id": {"S": rid},
+                                    "date": {"S": dt}
+                                }
+                                for rid, dt in chunk
+                            ]
+                        }
+                    }
+                    resp = client.batch_get_item(RequestItems=request_items)
+                    responses = resp.get("Responses", {}).get(table_name, [])
+                    for db_item in responses:
+                        rid = db_item.get("resource_id", {}).get("S", "")
+                        dt = db_item.get("date", {}).get("S", "")
+                        if rid and dt:
+                            feature = {}
+                            for k, v in db_item.items():
+                                if "N" in v:
+                                    feature[k] = float(v["N"])
+                                elif "S" in v:
+                                    feature[k] = v["S"]
+                                elif "BOOL" in v:
+                                    feature[k] = v["BOOL"]
+                                elif "NULL" in v:
+                                    feature[k] = None
+                            features_lut[(rid, dt)] = feature
+                logger.info("Loaded %d features from DynamoDB table %s", len(features_lut), table_name)
+            except Exception as e:
+                logger.warning("DynamoDB BatchGetItem failed for %s: %s", table_name, e)
+
         anomalies: list[AnomalyItem] = []
         used_ids: set[str] = set()
 
@@ -530,6 +620,32 @@ class StatisticalDetectService(DetectService):
             peer_med = peer_median.get(peer_key, cost)
             peer_ratio = cost / (peer_med + 1e-6)
 
+            # Override with DynamoDB feature store if available
+            feature = features_lut.get((rid, item.line_item_usage_start_date[:10]))
+            if feature:
+                stats["rolling_avg"] = feature.get("rolling_avg", stats["rolling_avg"])
+                stats["rolling_std"] = feature.get("rolling_std", stats["rolling_std"])
+                stats["rolling_median"] = feature.get("rolling_median", stats["rolling_median"])
+                stats["rolling_mad"] = feature.get("rolling_mad", stats["rolling_mad"])
+                stats["slope_14d"] = feature.get("slope_14d", stats["slope_14d"])
+                stats["cost_pct_change_28d"] = feature.get("cost_pct_change_28d", stats["cost_pct_change_28d"])
+
+                cpu_mean = feature.get("cpu_mean", cpu_mean)
+                usage_density = feature.get("usage_density_24h", usage_density)
+                peer_ratio = feature.get("peer_ratio", peer_ratio)
+
+                age_days = feature.get("age_days")
+                history_len = int(age_days) if age_days is not None else len(history)
+
+                # Override tags if missing in CUR but present in Feature Store
+                if team_missing and feature.get("resource_tags_user_team"):
+                    item.resource_tags_user_team = feature.get("resource_tags_user_team")
+                    team_missing = False
+                if owner_missing and feature.get("resource_tags_user_owner"):
+                    item.resource_tags_user_owner = feature.get("resource_tags_user_owner")
+                    owner_missing = False
+            else:
+                history_len = len(history)
 
             detected = False
             stat_score = 0.0
@@ -552,7 +668,7 @@ class StatisticalDetectService(DetectService):
 
             flagged, score, driver = _detect_sudden_spike(
                 cost, stats["rolling_avg"], stats["rolling_std"],
-                stats["rolling_median"], stats["rolling_mad"],
+                stats["rolling_median"], stats["rolling_mad"], business_ctx,
             )
             if flagged and score > stat_score:
                 detected, stat_score, anomaly_type, driver_feature = True, score, AnomalyType.sudden_spike, driver
@@ -577,14 +693,14 @@ class StatisticalDetectService(DetectService):
                 detected, stat_score, anomaly_type, driver_feature = True, score, AnomalyType.idle_resource, driver
 
 
-            flagged, score, driver = _detect_gradual_drift(stats["slope_14d"], stats["cost_pct_change_28d"])
+            flagged, score, driver = _detect_gradual_drift(stats["slope_14d"], stats["cost_pct_change_28d"], business_ctx)
             if flagged and score > stat_score:
                 detected, stat_score, anomaly_type, driver_feature = True, score, AnomalyType.gradual_drift, driver
 
 
 
             flagged, score, driver = _detect_young_resource_spike(
-                cost, len(history), peer_ratio, business_ctx
+                cost, history_len, peer_ratio, business_ctx
             )
             if flagged and score > stat_score:
                 detected, stat_score, anomaly_type, driver_feature = True, score, AnomalyType.sudden_spike, driver

@@ -1,0 +1,46 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowFullCrossAccount",
+      "Effect": "Allow",
+      "Principal": { "AWS": ["arn:aws:iam::093490087544:root", "arn:aws:iam::812527291603:root"] },
+      "Action": [
+        "ecr:BatchCheckLayerAvailability",
+        "ecr:BatchGetImage",
+        "ecr:GetDownloadUrlForLayer",
+        "ecr:DescribeImages",
+        "ecr:DescribeRepositories",
+        "ecr:ListImages",
+        "ecr:GetRepositoryPolicy",
+        "ecr:PutImage",
+        "ecr:InitiateLayerUpload",
+        "ecr:UploadLayerPart",
+        "ecr:CompleteLayerUpload",
+        "ecr:BatchDeleteImage"
+      ]
+    },
+    {
+      "Sid": "AllowCrossAccountPull",
+      "Effect": "Allow",
+      "Principal": { "AWS": ["arn:aws:iam::994899741781:root", "arn:aws:iam::493499579600:root"] },
+      "Action": ["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"]
+    },
+    {
+      "Sid": "AllowLambdaCrossAccountPull",
+      "Effect": "Allow",
+      "Principal": { "Service": "lambda.amazonaws.com" },
+      "Action": ["ecr:BatchCheckLayerAvailability", "ecr:BatchGetImage", "ecr:GetDownloadUrlForLayer"],
+      "Condition": {
+        "StringLike": {
+          "aws:SourceArn": [
+            "arn:aws:lambda:ap-southeast-1:093490087544:function:*",
+            "arn:aws:lambda:ap-southeast-1:812527291603:function:*",
+            "arn:aws:lambda:ap-southeast-1:994899741781:function:*",
+            "arn:aws:lambda:ap-southeast-1:493499579600:function:*"
+          ]
+        }
+      }
+    }
+  ]
+}
