@@ -22,8 +22,14 @@ AWS CLI commands follow contract §7 Containment Actions enum exactly:
 from __future__ import annotations
 
 import datetime
+import json
 import logging
+import os
+import re
 from typing import TYPE_CHECKING
+
+import boto3
+from botocore.exceptions import ClientError
 
 from app.models.enums import (
     AnomalyType,
@@ -321,6 +327,163 @@ def _build_rca(anomaly_type: AnomalyType, driver_feature: str) -> RootCauseAnaly
     )
 
 
+_bedrock_client = None
+
+def _get_bedrock_client():
+    global _bedrock_client
+    if _bedrock_client is None:
+        region = os.environ.get("BEDROCK_REGION", "us-east-1")
+        _bedrock_client = boto3.client("bedrock-runtime", region_name=region)
+    return _bedrock_client
+
+
+def _build_nova_rca_system_prompt() -> str:
+    return (
+        "Ban la chuyen gia FinOps cap cao voi 10 nam kinh nghiem quan ly chi phi dam may AWS.\n"
+        "Nhiem vu: Phan tich du lieu chi phi AWS va xac dinh nguyen nhan goc re (Root Cause)\n"
+        "bang ngon ngu tai chinh ro rang, de hieu cho CFO va Finance team.\n"
+        "TUYET DOI khong dung cac thuat ngu toan hoc nhu: robust_z, rolling window, gradient.\n"
+        "Khi owner tag bi MISSING: can xem xet day la dau hieu vi pham Tag Policy cua doanh nghiep,\n"
+        "nhung van nen phan tich them cac signal khac (usage_density, cost_ratio) de xac dinh root cause chinh xac nhat.\n"
+        "Vi du: neu resource vua missing owner tag vua idle -> root_cause = 'Idle Resource', missing_tags = ['owner'].\n"
+        "Chi tra ve JSON thuan tuy, khong them markdown, khong them giai thich ngoai JSON."
+    )
+
+
+def _build_nova_rca_user_prompt(record: dict) -> str:
+    owner_val = record.get("resource_tags_user_owner")
+    owner_missing = (owner_val is None or str(owner_val).strip().upper() in ("", "NAN", "NONE", "MISSING"))
+    owner_display = "MISSING - vi pham Tag Policy cong ty" if owner_missing else str(owner_val)
+
+    cost_24h = record.get("line_item_unblended_cost", 0.0)
+    cost_ratio = record.get("cost_ratio_to_7d_avg", 1.0)
+    usage_density = record.get("usage_density_24h", 0.5)
+    cpu_mean = record.get("cpu_mean", 50.0)
+    spike = record.get("absolute_cost_spike", 0.0)
+    monthly_proj = round(cost_24h * 30, 2)
+
+    prompt = f"""Du lieu anomaly can phan tich:
+- Resource ID   : {record.get('resource_id', 'unknown')}
+- AWS Service   : {record.get('line_item_product_code', 'unknown')}
+- Moi truong    : {record.get('environment', 'unknown')}
+- Chi phi 24h   : ${cost_24h:.2f} USD
+- Du bao/thang  : ${monthly_proj:.2f} USD
+- So baseline   : {cost_ratio:.1f}x so voi trung binh 7 ngay truoc
+- Chi phi tang dot bien : ${spike:.2f} USD (so voi muc binh thuong)
+- Usage density : {usage_density:.2f}  (0 = khong chay, 1.0 = chay 24/24)
+- CPU trung binh: {cpu_mean:.1f}%
+- Owner tag     : {owner_display}
+- Team tag      : {record.get('resource_tags_user_team', 'unknown')}
+
+Hay phan tich va tra ve CHINH XAC JSON sau (khong them gi ngoai JSON):
+{{
+  "primary_driver_feature": "<ten signal chinh gay ra anomaly, vi du: usage_density_24h>",
+  "root_cause_category": "<mot trong: Idle Resource | Mis-tagged Spend | Cost Spike | Runaway Job | Other>",
+  "finance_summary": "<1-2 cau tom tat cho CFO, dung ngon ngu tai chinh, kem con so cu the>",
+  "technical_reason": "<giai thich ky thuat chi tiet cho Engineering team>",
+  "missing_mandatory_tags": ["<cac tag bi thieu, vi du: resource_tags_user_owner>"],
+  "risk_level": "<Low | Medium | High | Critical>"
+}}"""
+    return prompt
+
+
+def _call_nova_pro(system_prompt: str, user_prompt: str) -> str:
+    client = _get_bedrock_client()
+    body = json.dumps({
+        "system": [{"text": system_prompt}],
+        "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
+        "inferenceConfig": {
+            "maxTokens": 512,
+            "temperature": 0.1,
+        },
+    })
+    response = client.invoke_model(
+        modelId="amazon.nova-pro-v1:0",
+        body=body,
+        contentType="application/json",
+        accept="application/json",
+    )
+    resp_body = json.loads(response["body"].read())
+    return resp_body["output"]["message"]["content"][0]["text"]
+
+
+def _parse_rca_response(raw_text: str) -> dict:
+    fence_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", raw_text, re.DOTALL)
+    if fence_match:
+        json_str = fence_match.group(1)
+    else:
+        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+        if not match:
+            raise ValueError("No JSON block found in Bedrock response")
+        json_str = match.group()
+    return json.loads(json_str)
+
+
+def _build_mitigation_prompt(record: dict, rca: dict) -> str:
+    env = record.get("environment", "dev")
+    confidence = record.get("confidence_score", 0.90)
+    service = record.get("line_item_product_code", "unknown")
+    resource = record.get("resource_id", "unknown")
+    root_cause = rca.get("root_cause_category", "Other")
+    risk = rca.get("risk_level", "Medium")
+
+    return f"""Thong tin anomaly:
+- Resource ID   : {resource}
+- AWS Service   : {service}
+- Moi truong    : {env}
+- Confidence    : {confidence:.2f}
+- Root Cause    : {root_cause}
+- Risk Level    : {risk}
+
+Ma tran hanh dong bat buoc (KHONG duoc sai lech):
+- prod           : chi tag-for-review + slack. TUYET DOI khong stop/terminate.
+- staging        : tag + time-lock 4h (14400s). Fallback stop sau 4h neu khong co phan hoi.
+- dev/sandbox    : neu confidence >= 0.80 -> stop instance. Neu < 0.80 -> tag only.
+- ml-research    : neu confidence >= 0.80 -> stop sagemaker notebook. Neu < 0.80 -> tag only.
+- data-analytics : quota-cap qua Service Quotas API. KHONG stop/terminate.
+
+Rollback: moi action stop phai kem rollback command tuong ung (start/resume).
+
+Tra ver CHINH XAC JSON sau, khong them gi ngoai JSON:
+{{
+  "strategy": "<ten chien luoc ngan gon>",
+  "immediate_action": "<tag-for-review | stop-instance | stop-notebook | quota-cap | tag-only>",
+  "cli_commands": ["<aws cli command 1>", "<aws cli command 2 neu can>"],
+  "rollback_command": "<aws cli command de undo action tren>",
+  "slack_message": "<noi dung thong bao Slack ngan gon cho team>",
+  "enforcement_countdown": {{
+    "enabled": <true hoac false>,
+    "time_lock_seconds": <0 hoac 14400>,
+    "fallback_action": "<none hoac schedule-shutdown>"
+  }},
+  "requires_human_approval": <true hoac false>
+}}"""
+
+
+def _call_nova_lite(system_prompt: str, user_prompt: str) -> str:
+    client = _get_bedrock_client()
+    body = json.dumps({
+        "system": [{"text": system_prompt}],
+        "messages": [{"role": "user", "content": [{"text": user_prompt}]}],
+        "inferenceConfig": {
+            "maxTokens": 512,
+            "temperature": 0.0,
+        },
+    })
+    response = client.invoke_model(
+        modelId="amazon.nova-lite-v1:0",
+        body=body,
+        contentType="application/json",
+        accept="application/json",
+    )
+    resp_body = json.loads(response["body"].read())
+    return resp_body["output"]["message"]["content"][0]["text"]
+
+
+def _parse_mitigation_response(raw_text: str) -> dict:
+    return _parse_rca_response(raw_text)
+
+
 
 
 class ProductionDecisionService(DecisionService):
@@ -347,21 +510,137 @@ class ProductionDecisionService(DecisionService):
         env = ctx.environment.value
         driver = _extract_driver(ctx.anomaly_type.value)
 
-
+        # Get raw anomaly record
+        record = self._detect.get_anomaly_raw(ctx.anomaly_id)
+        if not record:
+            record = {
+                "resource_id": ctx.resource_id,
+                "environment": env,
+                "confidence_score": 0.90,
+                "line_item_product_code": "unknown",
+                "line_item_unblended_cost": ctx.unblended_cost_24h_usd,
+                "cost_ratio_to_7d_avg": ctx.cost_ratio_to_7d_avg,
+                "usage_density_24h": 0.5,
+                "cpu_mean": 50.0,
+                "resource_tags_user_owner": None,
+                "resource_tags_user_team": ctx.responsible_team,
+                "absolute_cost_spike": 0.0,
+                "database_connections": 0.0,
+            }
 
         effective_dry_run = request.dry_run_mode or locked
-        if locked:
-            action = ContainmentAction.tag_for_review
-        else:
-            action = _containment_action(env, ctx.anomaly_type, ctx.resource_id)
-        plan = _build_action_plan(action, ctx.resource_id)
-        applied = _build_applied(action, ctx.resource_id, ctx.anomaly_id)
-        rollback = _build_rollback(action, ctx.resource_id)
+        
+        # Determine Containment Action using LLM
+        use_mock = os.environ.get("BEDROCK_MOCK", "false").lower() == "true"
+        mitigation_dict = None
+        rca_dict = None
+        
+        # 1. LLM Root Cause Analysis
+        rca_obj = None
+        if not use_mock:
+            try:
+                system_prompt = _build_nova_rca_system_prompt()
+                user_prompt = _build_nova_rca_user_prompt(record)
+                raw_text = _call_nova_pro(system_prompt, user_prompt)
+                rca_dict = _parse_rca_response(raw_text)
+                
+                # Enforce Tag Policy
+                owner_val = record.get("resource_tags_user_owner")
+                owner_missing = (owner_val is None or str(owner_val).strip().upper() in ("", "NAN", "NONE", "MISSING"))
+                if owner_missing:
+                    tags = rca_dict.setdefault("missing_mandatory_tags", [])
+                    if "resource_tags_user_owner" not in tags:
+                        tags.append("resource_tags_user_owner")
+                    rca_dict["risk_level"] = "High"
+                
+                rca_obj = RootCauseAnalysis(
+                    primary_driver_feature=rca_dict.get("primary_driver_feature", driver),
+                    technical_reason=rca_dict.get("technical_reason", "LLM-generated root cause analysis."),
+                    missing_mandatory_tags=rca_dict.get("missing_mandatory_tags", []),
+                )
+            except Exception as e:
+                logger.warning("[RCA] Bedrock failed: %s. Using rule-based fallback.", e)
+                
+        if rca_obj is None:
+            rca_obj = _build_rca(ctx.anomaly_type, driver)
 
+        # 2. LLM Mitigation Action
+        if not use_mock and not locked:
+            try:
+                mitigation_system = (
+                    "Ban la FinOps Automation Engineer. "
+                    "Nhiem vu: chon dung hanh dong xu ly theo ma tran 5 moi truong AWS. "
+                    "Tuan thu nghiem ngat: prod chi duoc tag, khong bao gio tu dong tat may. "
+                    "Chi tra ve JSON thuan tuy."
+                )
+                rca_category = rca_dict.get("root_cause_category", "Other") if rca_dict else "Other"
+                risk_level = rca_dict.get("risk_level", "Medium") if rca_dict else "Medium"
+                mitigation_user = _build_mitigation_prompt(record, {
+                    "root_cause_category": rca_category,
+                    "risk_level": risk_level
+                })
+                raw_text_lite = _call_nova_lite(mitigation_system, mitigation_user)
+                mitigation_dict = _parse_mitigation_response(raw_text_lite)
+            except Exception as e:
+                logger.warning("[Mitigation] Bedrock Lite failed: %s. Using rule-based fallback.", e)
 
+        # Parse or fallback Action Plan, Applied, Rollback
+        action_mapped = False
+        if mitigation_dict and not locked:
+            try:
+                action_str = mitigation_dict.get("immediate_action", "tag-for-review")
+                if action_str in ("stop-instance", "stop-notebook", "auto-shutdown"):
+                    action = ContainmentAction.auto_shutdown
+                elif action_str == "quota-cap":
+                    action = ContainmentAction.quota_cap
+                elif action_str == "time-gated-countdown":
+                    action = ContainmentAction.time_gated_countdown
+                else:
+                    action = ContainmentAction.tag_for_review
+                    
+                plan = _build_action_plan(action, ctx.resource_id)
+                cli_cmds = mitigation_dict.get("cli_commands", [])
+                cli_cmd = cli_cmds[0] if cli_cmds else ""
+                rollback_cmd = mitigation_dict.get("rollback_command", "")
+                
+                is_notebook = "notebook" in ctx.resource_id.lower() or "sagemaker" in ctx.resource_id.lower()
+                is_rds = "rds" in ctx.resource_id.lower() or "db:" in ctx.resource_id.lower()
+                
+                if action == ContainmentAction.auto_shutdown:
+                    action_type = AppliedActionType.stop_sagemaker_notebook if is_notebook else (AppliedActionType.stop_instance if is_rds else AppliedActionType.stop_instance)
+                elif action == ContainmentAction.quota_cap:
+                    action_type = AppliedActionType.restrict_quota
+                else:
+                    action_type = AppliedActionType.inject_aws_tag
+                    
+                if action == ContainmentAction.auto_shutdown:
+                    rb_type = RollbackActionType.start_sagemaker_notebook if is_notebook else (RollbackActionType.start_instance if is_rds else RollbackActionType.start_instance)
+                elif action == ContainmentAction.quota_cap:
+                    rb_type = RollbackActionType.restore_quota
+                else:
+                    rb_type = RollbackActionType.remove_aws_tag
+                    
+                applied = AppliedPayload(
+                    action_type=action_type,
+                    aws_cli_command=cli_cmd or _build_applied(action, ctx.resource_id, ctx.anomaly_id).aws_cli_command
+                )
+                rollback = RollbackPayload(
+                    action_type=rb_type,
+                    aws_cli_rollback_command=rollback_cmd or _build_rollback(action, ctx.resource_id).aws_cli_rollback_command,
+                    original_resource_id=ctx.resource_id
+                )
+                action_mapped = True
+            except Exception as e:
+                logger.warning("[Mitigation] Parsing failed: %s. Using rule-based fallback.", e)
 
-        driver_feature = driver
-        rca = _build_rca(ctx.anomaly_type, driver_feature)
+        if not action_mapped:
+            if locked:
+                action = ContainmentAction.tag_for_review
+            else:
+                action = _containment_action(env, ctx.anomaly_type, ctx.resource_id)
+            plan = _build_action_plan(action, ctx.resource_id)
+            applied = _build_applied(action, ctx.resource_id, ctx.anomaly_id)
+            rollback = _build_rollback(action, ctx.resource_id)
 
         tech_ctx = _TECH_CTX.get(ctx.anomaly_type, _TECH_CTX[AnomalyType.sudden_spike])
         projected = round(ctx.unblended_cost_24h_usd * 30, 2)
@@ -369,15 +648,20 @@ class ProductionDecisionService(DecisionService):
         cost_center = ctx.cost_center_code or "CC-UNKNOWN"
         channel = _SLACK_CHANNELS.get(env, "#finops-alert")
 
-        finance_summary = (
-            f"Resource {ctx.resource_id} ({team}) flagged as "
-            f"{ctx.anomaly_type.value.replace('_', ' ')}. "
-            f"Cost: ${ctx.unblended_cost_24h_usd:.2f}/day "
-            f"({ctx.cost_ratio_to_7d_avg:.1f}× 7-day average). "
-            f"Projected monthly waste: ${projected:,.2f}. "
-            f"Containment initiated (dry_run={effective_dry_run}"
-            f"{', LOCKED_MODE' if locked else ''})."
-        )
+        if rca_dict and "finance_summary" in rca_dict:
+            finance_summary = rca_dict["finance_summary"]
+            if effective_dry_run:
+                finance_summary += f" (dry_run=True{', LOCKED_MODE' if locked else ''})"
+        else:
+            finance_summary = (
+                f"Resource {ctx.resource_id} ({team}) flagged as "
+                f"{ctx.anomaly_type.value.replace('_', ' ')}. "
+                f"Cost: ${ctx.unblended_cost_24h_usd:.2f}/day "
+                f"({ctx.cost_ratio_to_7d_avg:.1f}× 7-day average). "
+                f"Projected monthly waste: ${projected:,.2f}. "
+                f"Containment initiated (dry_run={effective_dry_run}"
+                f"{', LOCKED_MODE' if locked else ''})."
+            )
 
         finance = FinanceDashboardData(
             target_recipient="Finance Team & CFO Dashboard",
@@ -393,16 +677,14 @@ class ProductionDecisionService(DecisionService):
         engineering = EngineeringDashboardData(
             target_recipient=f"Engineering Console & Slack {channel}",
             technical_context=TechnicalContext(**tech_ctx),
-            root_cause_analysis=rca,
+            root_cause_analysis=rca_obj,
             slack_routing=SlackRouting(
                 channel_name=channel,
                 webhook_url_pointer=f"ssm:/finops-watch/{env}/slack-webhook",
             ),
         )
 
-
         self._pre_action_costs[request.correlation_id] = ctx.unblended_cost_24h_usd
-
 
         now_iso = datetime.datetime.utcnow().isoformat() + "Z"
         log_entry = ActionLogEntry(

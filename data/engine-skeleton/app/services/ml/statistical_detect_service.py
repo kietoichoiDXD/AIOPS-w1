@@ -49,6 +49,7 @@ from app.services.base import DetectService
 
 
 _status_store: dict[str, RemediationStatusResponse] = {}
+_anomalies_registry: dict[str, dict] = {}
 
 
 ROBUST_Z_THRESHOLD = 2.5
@@ -630,6 +631,21 @@ class StatisticalDetectService(DetectService):
             anomalies.append(anomaly)
 
 
+            _anomalies_registry[anomaly_id] = {
+                "resource_id": rid,
+                "environment": env,
+                "confidence_score": final_score,
+                "line_item_product_code": product_code,
+                "line_item_unblended_cost": cost,
+                "cost_ratio_to_7d_avg": cost_ratio,
+                "usage_density_24h": usage_density,
+                "cpu_mean": cpu_mean,
+                "resource_tags_user_owner": item.resource_tags_user_owner,
+                "resource_tags_user_team": item.resource_tags_user_team,
+                "absolute_cost_spike": stats.get("absolute_cost_spike", 0.0) if "stats" in locals() else 0.0,
+                "database_connections": met.get("database_connections", 0.0) if met else 0.0,
+            }
+
             _status_store[anomaly_id] = RemediationStatusResponse(
                 audit_id=str(uuid.uuid4()),
                 anomaly_id=anomaly_id,
@@ -649,6 +665,10 @@ class StatisticalDetectService(DetectService):
 
     def get_status(self, anomaly_id: str) -> RemediationStatusResponse | None:
         return _status_store.get(anomaly_id)
+
+    @staticmethod
+    def get_anomaly_raw(anomaly_id: str) -> dict | None:
+        return _anomalies_registry.get(anomaly_id)
 
     @staticmethod
     def update_status(
