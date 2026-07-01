@@ -1,5 +1,3 @@
-
-
 # Telemetry Contract — Task Force 2 (FinOps Watch)
 
 <!-- Owner: Nhóm AI 2
@@ -1019,6 +1017,27 @@ Mọi signal payload phải comply các quy tắc sau:
 
 ---
 
+## 20. Telemetry State Store — S3-based Feature Store
+
+Để hỗ trợ các thuật toán phát hiện bất thường cần lookback window (như `idle_resource` >3 ngày và `gradual_drift` >4 tuần) mà không sử dụng cơ sở dữ liệu S3, AI Engine sử dụng một **S3-based Feature Store** nằm trong bucket `s3://company-cdo-telemetry/features/`:
+
+1. **Ghi nhận dữ liệu**: Với mỗi lượt chạy `POST /v1/detect`, AI Engine sẽ ghi nhận vector đặc trưng hàng ngày của từng tài nguyên dưới dạng file JSON tại:
+   `s3://company-cdo-telemetry/features/{resource_id}/{YYYY-MM-DD}.json`
+   Schema của tệp JSON đặc trưng:
+   ```json
+   {
+     "resource_id": "string",
+     "date": "YYYY-MM-DD",
+     "unblended_cost": 0.0,
+     "usage_amount": 0.0,
+     "usage_density_24h": 0.0,
+     "cpu_percent": 0.0
+   }
+   ```
+2. **Đọc dữ liệu lookback**: Khi chạy phân tích, AI Engine sẽ thực hiện list và get các file JSON trong thư mục `features/{resource_id}/` của 3 ngày gần nhất (đối với `idle_resource`) hoặc 30 ngày gần nhất (đối với `gradual_drift`) để tính toán thống kê rolling stats cục bộ trong RAM trước khi đưa ra quyết định.
+
+---
+
 ## Open Questions (Resolved)
 
 - [x] **Q1**: Signal nào cần exactly-once delivery?
@@ -1038,24 +1057,3 @@ Mọi signal payload phải comply các quy tắc sau:
 - docs/03_ai_engine_spec.md — Model governance, Bedrock Guardrails, Prompt engineering.
 - docs/04_eval_report.md — Backtest results, failure analysis, curveball impact.
 - docs/05_adrs.md — Architecture Decision Records (ADR-001 to ADR-005).
-
----
-
-## 20. Telemetry State Store — S3-based Feature Store
-
-Để hỗ trợ các thuật toán phát hiện bất thường cần lookback window (như `idle_resource` >3 ngày và `gradual_drift` >4 tuần) mà không sử dụng cơ sở dữ liệu S3, AI Engine sử dụng một **S3-based Feature Store** nằm trong bucket `s3://company-cdo-telemetry/features/`:
-
-1. **Ghi nhận dữ liệu**: Với mỗi lượt chạy `POST /v1/detect`, AI Engine sẽ ghi nhận vector đặc trưng hàng ngày của từng tài nguyên dưới dạng file JSON tại:
-   `s3://company-cdo-telemetry/features/{resource_id}/{YYYY-MM-DD}.json`
-   Schema của tệp JSON đặc trưng:
-   ```json
-   {
-     "resource_id": "string",
-     "date": "YYYY-MM-DD",
-     "unblended_cost": 0.0,
-     "usage_amount": 0.0,
-     "usage_density_24h": 0.0,
-     "cpu_percent": 0.0
-   }
-   ```
-2. **Đọc dữ liệu lookback**: Khi chạy phân tích, AI Engine sẽ thực hiện list và get các file JSON trong thư mục `features/{resource_id}/` của 3 ngày gần nhất (đối với `idle_resource`) hoặc 30 ngày gần nhất (đối với `gradual_drift`) để tính toán thống kê rolling stats cục bộ trong RAM trước khi đưa ra quyết định.
