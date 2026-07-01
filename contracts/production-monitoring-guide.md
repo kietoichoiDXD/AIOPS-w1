@@ -88,7 +88,7 @@ graph TD
     *   *Mục đích*: Đo tổng số tiền hệ thống đã tiết kiệm được cho công ty.
     *   *Cách tính*: `Số giờ tài nguyên bị tắt x Đơn giá tài nguyên/giờ`.
 *   **S3 API Throttling & Client Errors (Đơn vị: Số lần)**:
-    *   *Mục đích*: Đảm bảo các hoạt động đọc/ghi cache idempotency và audit logs trên Amazon S3 hoạt động mượt mà, không bị lỗi giới hạn cuộc gọi.
+    *   *Mục đích*: Đảm bảo các hoạt động đọc/ghi audit logs trên Amazon S3 và cache idempotency trên DynamoDB hoạt động mượt mà, không bị lỗi giới hạn cuộc gọi.
 
 ---
 

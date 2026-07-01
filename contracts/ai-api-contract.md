@@ -182,7 +182,7 @@ POST /v1/verify ──────────────────► Đánh
 
 ### 3.1 Clock Skew — Tách biệt hai cơ chế kiểm tra thời gian
 
-`X-Idempotency-Key` lưu tại S3 bucket của từng tenant (VD: `s3://tf2-cdo01-telemetry-ap-southeast-1/idempotency/`) với 24-hour Object Lifecycle Expiry. Xử lý theo 3 trường hợp:
+`X-Idempotency-Key` lưu tại bảng DynamoDB `finops-idempotency-{env}` (PK = `idempotency_key`, TTL = 24 giờ) sử dụng **conditional write** (`attribute_not_exists`) để đảm bảo P99 latency < 300ms. Xử lý theo 3 trường hợp:
 
 | Trạng thái Key | Payload | Hành vi |
 |---|---|---|

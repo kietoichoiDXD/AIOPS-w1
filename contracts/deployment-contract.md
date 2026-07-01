@@ -145,7 +145,7 @@ Quản lý thông tin nhạy cảm tập trung, cấm hardcode credentials trong
 |---|---|---|
 | `BEDROCK_API_KEY` | AWS Secrets Manager: `tf-2/ai-engine/bedrock` | API Key sơ cua (hoặc Token) nếu gọi qua API Gateway ngoài. Mặc định ưu tiên IAM Role. |
 | `AWS_REGION` | Environment Variable | Thiết lập mặc định: `ap-southeast-1` (Singapore) |
-| `S3_TELEMETRY_BUCKET` | Environment Variable | Tên S3 bucket lưu trữ idempotency, audit logs, và features |
+| `S3_TELEMETRY_BUCKET` | Environment Variable | Tên S3 bucket lưu trữ audit logs và raw telemetry (idempotency đã chuyển sang DynamoDB `finops-idempotency-{env}`) |
 
 > 🔒 **Quy tắc an toàn mạng:** Tuyệt đối không sử dụng IAM User static access key. Toàn bộ hạ tầng của CDO phải gán IAM Task Execution Role có gắn Policy cho phép truy cập Bedrock và Secrets Manager. Secrets Manager rotation policy được thiết lập tự động xoay vòng mỗi 30 ngày.
 
