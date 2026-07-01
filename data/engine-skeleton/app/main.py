@@ -39,22 +39,15 @@ from app.services.ml.tenant_state import TenantStateService
 from app.services.rate_limiter import RateLimiter
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    tenant_state = TenantStateService()
-    detect_svc   = StatisticalDetectService()
-    decision_svc = ProductionDecisionService(
-        detect_service=detect_svc, tenant_state=tenant_state
-    )
-    idempotency  = IdempotencyService()
-    rate_limiter = RateLimiter(settings.rate_limit_per_min)
-
-    app.state.tenant_state     = tenant_state
-    app.state.detect_service   = detect_svc
-    app.state.decision_service = decision_svc
-    app.state.idempotency      = idempotency
-    app.state.rate_limiter     = rate_limiter
-    yield
+# Initialize services at module scope to support environments like AWS Lambda/Mangum
+# where the ASGI lifespan context manager is bypassed (lifespan="off").
+tenant_state = TenantStateService()
+detect_svc   = StatisticalDetectService()
+decision_svc = ProductionDecisionService(
+    detect_service=detect_svc, tenant_state=tenant_state
+)
+idempotency  = IdempotencyService()
+rate_limiter = RateLimiter(settings.rate_limit_per_min)
 
 
 app = FastAPI(
@@ -71,11 +64,17 @@ app = FastAPI(
         "email": "trankanjin803@gmail.com",
     },
     license_info={"name": "Internal — TF2 Capstone Phase 2"},
-    lifespan=lifespan,
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
 )
+
+# Register services on app.state immediately
+app.state.tenant_state     = tenant_state
+app.state.detect_service   = detect_svc
+app.state.decision_service = decision_svc
+app.state.idempotency      = idempotency
+app.state.rate_limiter     = rate_limiter
 
 
 
