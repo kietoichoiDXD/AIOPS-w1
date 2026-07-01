@@ -659,7 +659,7 @@ Logic: `cost ↑ + traffic ↑ = normal growth` | `cost ↑ + traffic flat = ano
     "traffic_volume": {
       "type": "number",
       "minimum": 0,
-      "description": "Request volume aggregate 24h. Xem §11.2 cho nguồn dữ liệu."
+      "description": "Request volume aggregate 24h. Xem §11.1 cho nguồn dữ liệu."
     },
     "traffic_source": {
       "type": "string",
@@ -676,7 +676,7 @@ Logic: `cost ↑ + traffic ↑ = normal growth` | `cost ↑ + traffic flat = ano
 }
 ```
 
-### 11.2 Traffic Volume Collection Spec — CDO Implementation Guide
+### 11.1 Traffic Volume Collection Spec — CDO Implementation Guide
 
 > **v3.2.0 production gate:** Contract bắt buộc `traffic_volume` — section này định nghĩa **cách CDO thu thập** để team implement được.
 
@@ -718,7 +718,7 @@ GROUP BY linked_account_id
 
 **Synthetic traffic cho backtest:** Script correlate traffic với CE daily cost (ρ ≈ 0.85 cho benign events). File output: `capstone-phase2/data/tf2-finops/synthetic_traffic_daily.csv`.
 
-### 11.1 Feature Engineering — `cost_per_request` (AI Engine tính, không do CDO gửi)
+### 11.2 Feature Engineering — `cost_per_request` (AI Engine tính, không do CDO gửi)
 
 Trước khi đưa vào Isolation Forest, AI Engine **PHẢI** derive feature chuẩn hóa theo traffic:
 

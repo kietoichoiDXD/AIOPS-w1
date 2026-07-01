@@ -49,7 +49,7 @@
   - [1. Mục đích \& Phạm vi](#1-mục-đích--phạm-vi)
   - [2. Luồng tích hợp tổng thể](#2-luồng-tích-hợp-tổng-thể)
   - [3. Quy tắc chung \& Bảo mật](#3-quy-tắc-chung--bảo-mật)
-    - [3.1 Quy tắc Idempotency chi tiết](#31-quy-tắc-idempotency-chi-tiết)
+    - [3.1 Clock Skew — Tách biệt hai cơ chế kiểm tra thời gian](#31-clock-skew--tách-biệt-hai-cơ-chế-kiểm-tra-thời-gian)
     - [3.2 Error Budget Lock (Khóa tự động)](#32-error-budget-lock-khóa-tự-động)
   - [4. Cross-Cutting Headers](#4-cross-cutting-headers)
   - [5. Đặc tả API Endpoints](#5-đặc-tả-api-endpoints)
